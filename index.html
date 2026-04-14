@@ -605,6 +605,191 @@
       .dash-row { grid-template-columns: 1fr; }
       #dashboard-view, #journal-view { padding: 80px 20px 20px; }
       nav { width: auto; }
+      .login-card { width: 90vw !important; }
+    }
+
+    /* ---- LOGIN PAGE ---- */
+    #login-page {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: stretch;
+      background: #f0ece4;
+      transition: opacity 0.5s ease;
+    }
+    #login-page.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .login-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 56px;
+      max-width: 480px;
+    }
+
+    .login-right {
+      flex: 1.2;
+      position: relative;
+      overflow: hidden;
+    }
+    .login-right-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, var(--bg-1), var(--bg-2), var(--bg-3));
+      background-size: 300% 300%;
+      animation: gradientDrift 20s ease infinite;
+    }
+    .login-right-quote {
+      position: absolute;
+      bottom: 48px;
+      left: 48px;
+      right: 48px;
+      color: rgba(45,38,66,0.5);
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-style: italic;
+      line-height: 1.6;
+      letter-spacing: -0.01em;
+    }
+    .login-right-quote span {
+      display: block;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-style: normal;
+      margin-top: 12px;
+      color: rgba(45,38,66,0.35);
+      letter-spacing: 0.02em;
+    }
+
+    .login-brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-bottom: 48px;
+    }
+
+    .login-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: 30px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .login-sub {
+      font-size: 14px;
+      color: var(--text-soft);
+      margin-bottom: 36px;
+    }
+
+    .login-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-bottom: 1px solid rgba(45,38,66,0.1);
+    }
+    .login-tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 0 0 10px;
+      margin-right: 24px;
+      cursor: pointer;
+      color: rgba(45,38,66,0.35);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .login-tab.active {
+      color: var(--text);
+      border-bottom-color: var(--text);
+    }
+    .login-tab:hover:not(.active) {
+      color: rgba(45,38,66,0.6);
+    }
+
+    .login-form { display: flex; flex-direction: column; gap: 16px; }
+
+    .input-group {
+      text-align: left;
+    }
+    .input-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .login-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid rgba(45,38,66,0.15);
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      outline: none;
+      background: white;
+      color: var(--text);
+      transition: border-color 0.2s;
+    }
+    .login-input::placeholder { color: rgba(45,38,66,0.3); }
+    .login-input:focus {
+      border-color: rgba(45,38,66,0.4);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--text);
+      color: #f0ece4;
+      transition: opacity 0.2s;
+      margin-top: 4px;
+    }
+    .login-btn:hover { opacity: 0.85; }
+    .login-btn:active { opacity: 0.75; }
+
+    .login-error {
+      font-size: 12px;
+      color: #c25a5a;
+      min-height: 18px;
+      margin-top: -2px;
+    }
+
+    .login-footer {
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+    .login-footer a {
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: rgba(45,38,66,0.25);
+      text-underline-offset: 2px;
+      cursor: pointer;
+    }
+    .login-footer a:hover { text-decoration-color: var(--text); }
+
+    @media (max-width: 768px) {
+      .login-right { display: none; }
+      .login-left {
+        max-width: 100%;
+        padding: 40px 28px;
+      }
     }
   </style>
 </head>
@@ -612,6 +797,49 @@
 
 <!-- floating particles -->
 <div id="particles"></div>
+
+<!-- LOGIN PAGE -->
+<div id="login-page">
+  <div class="login-left">
+    <div class="login-brand">Emotional Landscape</div>
+
+    <div class="login-heading" id="login-heading">Welcome back</div>
+    <div class="login-sub" id="login-sub">Pick up where you left off.</div>
+
+    <div class="login-tabs">
+      <button class="login-tab active" onclick="switchLoginTab('login')">Log in</button>
+      <button class="login-tab" onclick="switchLoginTab('signup')">Sign up</button>
+    </div>
+
+    <div class="login-form" id="login-form">
+      <div class="input-group" id="name-group" style="display:none;">
+        <label>Name</label>
+        <input class="login-input" type="text" id="signup-name" placeholder="Your name">
+      </div>
+      <div class="input-group">
+        <label>Email</label>
+        <input class="login-input" type="email" id="login-email" placeholder="you@example.com">
+      </div>
+      <div class="input-group">
+        <label>Password</label>
+        <input class="login-input" type="password" id="login-password" placeholder="Password">
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <button class="login-btn" id="login-btn" onclick="handleAuth()">Log in</button>
+    </div>
+
+    <div class="login-footer">
+      <span id="login-footer-text">No account yet? <a onclick="switchLoginTab('signup')">Sign up</a></span>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-right-bg"></div>
+    <div class="login-right-quote">
+      "The places we inhabit shape how we feel, and how we feel shapes the places we remember."
+      <span>An idea this app is built around</span>
+    </div>
+  </div>
+</div>
 
 <nav>
   <div class="nav-brand">Emotional Landscape</div>
@@ -712,6 +940,88 @@
 </div>
 
 <script>
+// ---- AUTH ----
+let currentAuthMode = 'login';
+
+function checkAuth() {
+  const user = JSON.parse(localStorage.getItem('el_user') || 'null');
+  if (user) {
+    document.getElementById('login-page').classList.add('hidden');
+    setTimeout(() => {
+      document.getElementById('login-page').style.display = 'none';
+    }, 600);
+    return true;
+  }
+  return false;
+}
+
+function switchLoginTab(mode) {
+  currentAuthMode = mode;
+  document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.login-tab[onclick="switchLoginTab('${mode}')"]`).classList.add('active');
+  document.getElementById('login-error').textContent = '';
+
+  const nameGroup = document.getElementById('name-group');
+  const btn = document.getElementById('login-btn');
+  const footer = document.getElementById('login-footer-text');
+  const heading = document.getElementById('login-heading');
+  const sub = document.getElementById('login-sub');
+
+  if (mode === 'signup') {
+    nameGroup.style.display = 'block';
+    btn.textContent = 'Create account';
+    heading.textContent = 'Start mapping';
+    sub.textContent = 'Create an account to save your check-ins.';
+    footer.innerHTML = 'Already have an account? <a onclick="switchLoginTab(\'login\')">Log in</a>';
+  } else {
+    nameGroup.style.display = 'none';
+    btn.textContent = 'Log in';
+    heading.textContent = 'Welcome back';
+    sub.textContent = 'Pick up where you left off.';
+    footer.innerHTML = 'No account yet? <a onclick="switchLoginTab(\'signup\')">Sign up</a>';
+  }
+}
+
+function handleAuth() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+
+  if (!email) { errorEl.textContent = 'Please enter your email.'; return; }
+  if (!password) { errorEl.textContent = 'Please enter a password.'; return; }
+
+  const users = JSON.parse(localStorage.getItem('el_users') || '{}');
+
+  if (currentAuthMode === 'signup') {
+    const name = document.getElementById('signup-name').value.trim();
+    if (!name) { errorEl.textContent = 'Please enter your name.'; return; }
+    if (users[email]) { errorEl.textContent = 'An account with this email already exists.'; return; }
+    users[email] = { name, password, created: new Date().toISOString() };
+    localStorage.setItem('el_users', JSON.stringify(users));
+    localStorage.setItem('el_user', JSON.stringify({ email, name }));
+  } else {
+    if (!users[email]) { errorEl.textContent = 'No account found with this email.'; return; }
+    if (users[email].password !== password) { errorEl.textContent = 'Incorrect password.'; return; }
+    localStorage.setItem('el_user', JSON.stringify({ email, name: users[email].name }));
+  }
+
+  document.getElementById('login-page').classList.add('hidden');
+  setTimeout(() => {
+    document.getElementById('login-page').style.display = 'none';
+    map.invalidateSize();
+  }, 600);
+}
+
+// allow Enter key to submit
+document.addEventListener('DOMContentLoaded', () => {
+  ['login-email', 'login-password', 'signup-name'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleAuth();
+    });
+  });
+  checkAuth();
+});
+
 // ---- PARTICLES ----
 function createParticles() {
   const container = document.getElementById('particles');
