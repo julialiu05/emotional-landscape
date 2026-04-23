@@ -248,24 +248,18 @@
       <p id="modal-location-label">Logging at this spot in Berkeley</p>
     </div>
     <div class="modal-body">
-      <div class="question-group">
-        <label>What emotions are present right now?</label>
-        <div class="emotion-grid" id="emotion-picker"></div>
-      </div>
-      <div class="question-group">
-        <label>How intense is this feeling?</label>
-        <div class="slider-row">
-          <span class="slider-label">Low</span>
-          <input type="range" id="intensity" min="1" max="10" value="5">
-          <span class="slider-label">High</span>
+      <div class="question-group log-pad-group">
+        <div class="log-pad-readout">
+          <span class="log-pad-emotion" id="log-pad-emotion">—</span>
+          <span class="log-pad-intensity" id="log-pad-intensity">tap the field to begin</span>
         </div>
-      </div>
-      <div class="question-group">
-        <label>How's your energy level?</label>
-        <div class="slider-row">
-          <span class="slider-label">Drained</span>
-          <input type="range" id="energy" min="1" max="10" value="5">
-          <span class="slider-label">Buzzing</span>
+        <div class="log-pad" id="log-pad">
+          <div class="affect-axis-label affect-axis-top">high energy</div>
+          <div class="affect-axis-label affect-axis-bottom">low energy</div>
+          <div class="affect-axis-label affect-axis-left">unpleasant</div>
+          <div class="affect-axis-label affect-axis-right">pleasant</div>
+          <div class="log-pad-anchors" id="log-pad-anchors"></div>
+          <div class="affect-thumb" id="log-pad-thumb"></div>
         </div>
       </div>
       <div class="question-group">

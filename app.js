@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   setupAffectPad();
+  setupLogPad();
   checkAuth();
 });
 
@@ -144,6 +145,28 @@ const EMOTIONS = [
 
 const EMOTION_MAP = {};
 EMOTIONS.forEach(e => EMOTION_MAP[e.id] = e);
+
+// Circumplex positions for each emotion (valence × arousal, both in [-1, 1])
+const EMOTION_COORDS = {
+  joy:     { valence:  0.55, arousal:  0.55 },
+  wonder:  { valence:  0.25, arousal:  0.80 },
+  energy:  { valence: -0.05, arousal:  0.88 },
+  anxiety: { valence: -0.55, arousal:  0.60 },
+  anger:   { valence: -0.80, arousal:  0.35 },
+  sadness: { valence: -0.65, arousal: -0.50 },
+  calm:    { valence:  0.65, arousal: -0.55 },
+  love:    { valence:  0.85, arousal:  0.00 }
+};
+
+function nearestEmotion(v, a) {
+  let best = EMOTIONS[0], bestD = Infinity;
+  for (const em of EMOTIONS) {
+    const c = EMOTION_COORDS[em.id];
+    const d = Math.hypot(c.valence - v, c.arousal - a);
+    if (d < bestD) { bestD = d; best = em; }
+  }
+  return best;
+}
 
 let entries = JSON.parse(localStorage.getItem('el_entries') || '[]');
 let pendingLatLng = null;
@@ -668,9 +691,7 @@ function openModal(latlng) {
   document.getElementById('modal-overlay').classList.add('active');
   document.getElementById('modal-location-label').textContent =
     `Logging at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`;
-  buildEmotionPicker();
-  document.getElementById('intensity').value = 5;
-  document.getElementById('energy').value = 5;
+  resetLogPad();
   document.getElementById('journal-note').value = '';
   document.querySelectorAll('.trigger-chip').forEach(c => c.classList.remove('selected'));
 }
@@ -725,27 +746,96 @@ function autoLocate() {
   );
 }
 
-function buildEmotionPicker() {
-  const grid = document.getElementById('emotion-picker');
-  grid.innerHTML = EMOTIONS.map(e => `
-    <div class="emotion-chip" data-emotion="${e.id}" onclick="toggleEmotion(this)"
-         style="--dot-color:${e.color}; --chip-color:${e.color};">
-      <div class="dot"></div>
-      <span>${e.label}</span>
-    </div>
-  `).join('');
+// ---- LOG PAD (circumplex picker inside the check-in modal) ----
+function renderLogPadAnchors() {
+  const container = document.getElementById('log-pad-anchors');
+  if (!container) return;
+  container.innerHTML = EMOTIONS.map(em => {
+    const c = EMOTION_COORDS[em.id];
+    const left = ((c.valence + 1) / 2) * 100;
+    const top  = ((1 - c.arousal) / 2) * 100;
+    return `
+      <div class="log-pad-anchor" data-emotion="${em.id}" style="left:${left}%; top:${top}%; --anchor-color:${em.color};">
+        <div class="dot"></div>
+        <div class="label">${em.label}</div>
+      </div>`;
+  }).join('');
 }
 
-function toggleEmotion(el) { el.classList.toggle('selected'); }
+function resetLogPad() {
+  renderLogPadAnchors();
+  const pad = document.getElementById('log-pad');
+  const thumb = document.getElementById('log-pad-thumb');
+  if (pad) pad._pending = null;
+  if (thumb) thumb.classList.remove('visible');
+  document.querySelectorAll('#log-pad-anchors .log-pad-anchor').forEach(a => a.classList.remove('nearest'));
+  document.getElementById('log-pad-emotion').textContent = '—';
+  document.getElementById('log-pad-intensity').textContent = 'tap the field to begin';
+}
+
+function setupLogPad() {
+  const pad = document.getElementById('log-pad');
+  const thumb = document.getElementById('log-pad-thumb');
+  if (!pad || !thumb) return;
+
+  function placeAt(clientX, clientY) {
+    const rect = pad.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    thumb.style.left = (x * 100) + '%';
+    thumb.style.top  = (y * 100) + '%';
+    thumb.classList.add('visible');
+
+    const valence = x * 2 - 1;
+    const arousal = -(y * 2 - 1);
+    const em = nearestEmotion(valence, arousal);
+    const intensity = Math.min(10, Math.max(1, Math.round(Math.hypot(valence, arousal) * 10)));
+    const energy = Math.max(1, Math.min(10, Math.round((arousal + 1) * 5)));
+
+    pad._pending = { valence, arousal, emotion: em.id, intensity, energy };
+
+    document.querySelectorAll('#log-pad-anchors .log-pad-anchor').forEach(a => {
+      a.classList.toggle('nearest', a.dataset.emotion === em.id);
+    });
+    document.getElementById('log-pad-emotion').textContent = em.label;
+    document.getElementById('log-pad-intensity').textContent = `Intensity ${intensity} · Energy ${energy}`;
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    placeAt(cx, cy);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+  function onMove(e) {
+    if (e.touches) e.preventDefault();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    placeAt(cx, cy);
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+
+  pad.addEventListener('mousedown', onDown);
+  pad.addEventListener('touchstart', onDown, { passive: false });
+}
 
 document.querySelectorAll('.trigger-chip').forEach(chip => {
   chip.addEventListener('click', () => chip.classList.toggle('selected'));
 });
 
 function submitEntry() {
-  const selected = [...document.querySelectorAll('#emotion-picker .emotion-chip.selected')]
-    .map(el => el.dataset.emotion);
-  if (selected.length === 0) { alert('Please select at least one emotion.'); return; }
+  const pad = document.getElementById('log-pad');
+  const pending = pad && pad._pending;
+  if (!pending) { alert('Tap the field to place how you’re feeling.'); return; }
 
   const triggers = [...document.querySelectorAll('.trigger-chip.selected')]
     .map(el => el.dataset.trigger);
@@ -754,9 +844,11 @@ function submitEntry() {
     id: Date.now(),
     lat: pendingLatLng.lat,
     lng: pendingLatLng.lng,
-    emotions: selected,
-    intensity: parseInt(document.getElementById('intensity').value),
-    energy: parseInt(document.getElementById('energy').value),
+    emotions: [pending.emotion],
+    valence: pending.valence,
+    arousal: pending.arousal,
+    intensity: pending.intensity,
+    energy: pending.energy,
     note: document.getElementById('journal-note').value.trim(),
     triggers,
     timestamp: new Date().toISOString()
