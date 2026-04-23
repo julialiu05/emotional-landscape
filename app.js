@@ -146,8 +146,8 @@ let pendingLatLng = null;
 const map = L.map('map', { zoomControl: false }).setView([37.8716, -122.2727], 15);
 L.control.zoom({ position: 'topright' }).addTo(map);
 
-// soft pastel map tiles
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+// dusk map tiles
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   maxZoom: 19
 }).addTo(map);
