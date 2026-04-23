@@ -66,10 +66,14 @@
 
 <!-- Top nav bar -->
 <div class="nav-bar" id="nav-bar">
-  <div class="nav-bar-leading"></div>
+  <div class="nav-bar-leading">
+    <svg class="nav-chevron" viewBox="0 0 10 6" fill="none">
+      <path d="M1 1 L5 5 L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
   <div class="nav-bar-title" id="nav-bar-title">Map</div>
   <div class="nav-bar-trailing">
-    <div class="nav-bar-profile" id="nav-profile" onclick="toggleProfileMenu()">J</div>
+    <div class="nav-bar-profile" id="nav-profile" onclick="toggleProfileMenu()">A</div>
   </div>
 </div>
 
@@ -148,7 +152,15 @@
       </svg>
     </div>
     <div class="dropper-label">Drop to log</div>
+    <button class="gps-toggle" id="gps-toggle" onclick="toggleGps()" aria-label="Toggle GPS">
+      <span class="gps-knob"></span>
+      <span class="gps-text">GPS OFF</span>
+    </button>
   </div>
+
+  <button class="nearby-fab" id="nearby-fab" onclick="showNearby()" aria-label="Show nearby">
+    <span>NEARBY</span>
+  </button>
 
   <div class="drop-reticle" id="drop-reticle"></div>
 </div>
@@ -275,6 +287,31 @@
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary" onclick="submitEntry()">Save</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- AFFECT ONBOARDING (Circumplex: valence × arousal) -->
+<div class="affect-overlay" id="affect-overlay">
+  <div class="affect-panel">
+    <div class="affect-header">
+      <h2>How are you, <em>right now</em>?</h2>
+      <p>Place a dot. The landscape will tune itself to your mood.</p>
+    </div>
+    <div class="affect-pad" id="affect-pad">
+      <div class="affect-axis-label affect-axis-top">high energy</div>
+      <div class="affect-axis-label affect-axis-bottom">low energy</div>
+      <div class="affect-axis-label affect-axis-left">unpleasant</div>
+      <div class="affect-axis-label affect-axis-right">pleasant</div>
+      <div class="affect-quadrant-label q-tl">tense</div>
+      <div class="affect-quadrant-label q-tr">excited</div>
+      <div class="affect-quadrant-label q-bl">sad</div>
+      <div class="affect-quadrant-label q-br">calm</div>
+      <div class="affect-thumb" id="affect-thumb"></div>
+    </div>
+    <div class="affect-actions">
+      <button class="btn btn-secondary" onclick="skipAffectOnboarding()">Skip</button>
+      <button class="btn btn-primary" onclick="confirmAffect()">Continue</button>
     </div>
   </div>
 </div>

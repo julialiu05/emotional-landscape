@@ -8,6 +8,7 @@ function checkAuth() {
     setTimeout(() => {
       document.getElementById('login-page').style.display = 'none';
       if (typeof map !== 'undefined') { map.resize(); autoLocate(); }
+    maybeShowAffectOnboarding();
     }, 600);
     return true;
   }
@@ -60,6 +61,7 @@ function skipLogin() {
   setTimeout(() => {
     document.getElementById('login-page').style.display = 'none';
     if (typeof map !== 'undefined') { map.resize(); autoLocate(); }
+    maybeShowAffectOnboarding();
     updateSidebarStats();
   }, 400);
 }
@@ -92,6 +94,7 @@ function handleAuth() {
     document.getElementById('login-page').style.display = 'none';
     map.resize();
     autoLocate();
+    maybeShowAffectOnboarding();
   }, 600);
 }
 
@@ -102,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter') handleAuth();
     });
   });
+  setupAffectPad();
   checkAuth();
 });
 
@@ -151,6 +155,111 @@ function hexToRgb(hex) {
     parseInt(h.substr(2, 2), 16),
     parseInt(h.substr(4, 2), 16)
   ];
+}
+
+// ---- AFFECT (Circumplex Model) ----
+let affectState = JSON.parse(localStorage.getItem('el_affect') || 'null');
+
+function computeAffectFilter(affect) {
+  if (!affect) return '';
+  const v = Math.max(-1, Math.min(1, affect.valence || 0));
+  const a = Math.max(-1, Math.min(1, affect.arousal || 0));
+  const sat   = (1 + a * 0.18 + v * 0.10).toFixed(3);
+  const bri   = (1 + a * 0.05 + v * 0.03).toFixed(3);
+  const hue   = (-v * 10 + (a < 0 ? 4 : -2)).toFixed(1);
+  const con   = (1 + a * 0.06).toFixed(3);
+  const sep   = v < 0 && a < 0 ? (-v * 0.12).toFixed(2) : 0;
+  return `saturate(${sat}) brightness(${bri}) hue-rotate(${hue}deg) contrast(${con}) sepia(${sep})`;
+}
+
+function applyAffect(affect) {
+  const canvas = document.querySelector('.maplibregl-canvas');
+  const filter = computeAffectFilter(affect);
+  if (canvas) canvas.style.filter = filter;
+  if (affect) {
+    document.documentElement.style.setProperty('--user-valence', affect.valence.toFixed(2));
+    document.documentElement.style.setProperty('--user-arousal', affect.arousal.toFixed(2));
+  }
+}
+
+function setupAffectPad() {
+  const pad = document.getElementById('affect-pad');
+  const thumb = document.getElementById('affect-thumb');
+  if (!pad || !thumb) return;
+
+  function placeAt(clientX, clientY) {
+    const rect = pad.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    thumb.style.left = (x * 100) + '%';
+    thumb.style.top  = (y * 100) + '%';
+    thumb.classList.add('visible');
+    const affect = { valence: x * 2 - 1, arousal: -(y * 2 - 1) };
+    pad._pending = affect;
+    applyAffect(affect);
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    placeAt(cx, cy);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+  function onMove(e) {
+    if (e.touches) e.preventDefault();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    placeAt(cx, cy);
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+
+  pad.addEventListener('mousedown', onDown);
+  pad.addEventListener('touchstart', onDown, { passive: false });
+}
+
+function showAffectOnboarding() {
+  document.getElementById('affect-overlay').classList.add('active');
+}
+function confirmAffect() {
+  const pad = document.getElementById('affect-pad');
+  affectState = pad._pending || { valence: 0, arousal: 0 };
+  localStorage.setItem('el_affect', JSON.stringify(affectState));
+  localStorage.setItem('el_affect_onboarded', '1');
+  document.getElementById('affect-overlay').classList.remove('active');
+  applyAffect(affectState);
+}
+function skipAffectOnboarding() {
+  localStorage.setItem('el_affect_onboarded', '1');
+  document.getElementById('affect-overlay').classList.remove('active');
+}
+function maybeShowAffectOnboarding() {
+  if (localStorage.getItem('el_affect_onboarded') === '1') return;
+  setTimeout(showAffectOnboarding, 550);
+}
+
+// ---- GPS + NEARBY toggles ----
+let gpsOn = false;
+function toggleGps() {
+  gpsOn = !gpsOn;
+  const btn = document.getElementById('gps-toggle');
+  btn.classList.toggle('on', gpsOn);
+  btn.querySelector('.gps-text').textContent = gpsOn ? 'GPS ON' : 'GPS OFF';
+  if (gpsOn) { autoLocateTried = false; autoLocate(); }
+}
+function showNearby() {
+  if (!map) return;
+  if (entries.length === 0) { showMapHint('No check-ins yet — drop the first one.'); return; }
+  const last = entries[entries.length - 1];
+  map.flyTo({ center: [last.lng, last.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
 }
 
 function refreshFeelingsSource() {
@@ -378,6 +487,7 @@ map.on('load', () => {
   // once tiles are styled, drop any existing markers + paint the wash
   renderMarkers();
   refreshFeelingsSource();
+  if (affectState) applyAffect(affectState);
 });
 
 map.on('click', function(e) {
@@ -396,14 +506,31 @@ function renderMarkers() {
 
 function addMarker(entry) {
   const primary = EMOTION_MAP[entry.emotions[0]] || EMOTIONS[0];
-  const size = 14 + (entry.intensity * 2.5);
+  const size = 38 + (entry.intensity * 4);
+
+  // deterministic "organic" blob shape per entry so it doesn't reshuffle on re-render
+  const seed = (entry.id || 1) >>> 0;
+  const r = (k) => {
+    const n = Math.sin(seed * 9301 + k * 49297) * 43758.5453;
+    return n - Math.floor(n);
+  };
+  const rad = i => (38 + Math.floor(r(i) * 34)) + '%';
+  const borderRadius =
+    `${rad(1)} ${rad(2)} ${rad(3)} ${rad(4)} / ${rad(5)} ${rad(6)} ${rad(7)} ${rad(8)}`;
+  const rot = Math.floor(r(9) * 360);
 
   const el = document.createElement('div');
   el.className = 'emotion-marker';
   el.style.cssText = `
     width:${size}px; height:${size}px;
-    background: radial-gradient(circle at 35% 35%, ${primary.color}ee, ${primary.color}88);
-    box-shadow: 0 0 ${size * 0.8}px ${primary.glow}, 0 0 ${size * 0.4}px ${primary.glow};
+    background:
+      radial-gradient(ellipse 70% 65% at 38% 32%, ${primary.color}f2, ${primary.color}b8 55%, ${primary.color}60 85%, ${primary.color}00);
+    box-shadow:
+      0 0 ${size * 1.1}px ${primary.glow},
+      0 0 ${size * 0.55}px ${primary.glow};
+    border-radius: ${borderRadius};
+    transform: rotate(${rot}deg);
+    mix-blend-mode: multiply;
   `;
 
   const emotionTags = entry.emotions.map(id => {
