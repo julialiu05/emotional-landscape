@@ -186,10 +186,17 @@ map.on('load', () => {
     tint(id, 'line-opacity', 0.95);
   });
 
-  // building flat footprints → warm blush, soft opacity under the 3D extrusion
-  ['building', 'building-top'].forEach(id => {
-    tint(id, 'fill-color', '#e8c5c1');
-    tint(id, 'fill-opacity', 0.5);
+  // remove any existing building extrusion the style ships with (prevents z-fighting)
+  // and hide flat building footprints (coplanar with extrusion base → also z-fights)
+  const existingLayers = map.getStyle().layers;
+  existingLayers.forEach(l => {
+    if (l['source-layer'] === 'building') {
+      if (l.type === 'fill-extrusion') {
+        map.removeLayer(l.id);
+      } else if (l.type === 'fill') {
+        try { map.setPaintProperty(l.id, 'fill-opacity', 0); } catch (_) {}
+      }
+    }
   });
 
   // 3D building extrusion — the Apple Maps style lift
