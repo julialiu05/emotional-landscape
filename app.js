@@ -377,7 +377,7 @@ const map = new maplibregl.Map({
   container: 'map',
   style: 'https://tiles.openfreemap.org/styles/liberty',
   center: [-122.2727, 37.8716],
-  zoom: 16,
+  zoom: 17.5,
   pitch: 60,
   bearing: -18,
   antialias: true,
