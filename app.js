@@ -205,6 +205,14 @@ function applyAffect(affect) {
   }
 }
 
+function affectQuadrantName(v, a) {
+  if (Math.hypot(v, a) < 0.2) return 'neutral';
+  if (v >= 0 && a >= 0) return 'excited';
+  if (v < 0 && a >= 0) return 'tense';
+  if (v < 0 && a < 0) return 'sad';
+  return 'calm';
+}
+
 function setupAffectPad() {
   const pad = document.getElementById('affect-pad');
   const thumb = document.getElementById('affect-thumb');
@@ -220,6 +228,11 @@ function setupAffectPad() {
     const affect = { valence: x * 2 - 1, arousal: -(y * 2 - 1) };
     pad._pending = affect;
     applyAffect(affect);
+    const nameEl = document.getElementById('affect-readout-name');
+    const axesEl = document.getElementById('affect-readout-axes');
+    if (nameEl) nameEl.textContent = affectQuadrantName(affect.valence, affect.arousal);
+    if (axesEl) axesEl.textContent =
+      `valence ${affect.valence.toFixed(2)} · arousal ${affect.arousal.toFixed(2)}`;
   }
 
   function onDown(e) {
@@ -265,7 +278,8 @@ function skipAffectOnboarding() {
   document.getElementById('affect-overlay').classList.remove('active');
 }
 function maybeShowAffectOnboarding() {
-  if (localStorage.getItem('el_affect_onboarded') === '1') return;
+  // show on every login / page-enter so the user explicitly sets a mood baseline.
+  // within a single session they can still dismiss it with Skip/Continue.
   setTimeout(showAffectOnboarding, 550);
 }
 
@@ -931,6 +945,7 @@ function submitEntry() {
   addMarker(entry);
   refreshFeelingsSource();
   renderWorldChat();
+  if (document.getElementById('chat-list')) renderChat();
   closeModal();
   document.getElementById('map-hint').style.opacity = '0';
   updateSidebarStats();
@@ -938,7 +953,7 @@ function submitEntry() {
 }
 
 // ---- VIEWS ----
-const VIEW_TITLES = { map: 'Map', dashboard: 'Insights', journal: 'Journal' };
+const VIEW_TITLES = { map: 'Map', dashboard: 'Insights', journal: 'Messages' };
 
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -956,7 +971,7 @@ function switchView(name) {
 
   if (name === 'map') { setTimeout(() => map.resize(), 100); updateMapInfo(); }
   if (name === 'dashboard') renderDashboard();
-  if (name === 'journal') renderJournal();
+  if (name === 'journal') renderChat();
   updateSidebarStats();
 }
 
@@ -1120,324 +1135,338 @@ function shade(hex, lum) {
   drawLandscape();
 }
 
-// ---- LANDSCAPE CANVAS ----
+// ---- EMOTIONAL TERRAIN (animated canvas) ----
+let _terrainRafId = null;
+let _terrainStart = 0;
 function drawLandscape() {
+  renderEmotionalTerrain();
+}
+
+function renderEmotionalTerrain() {
   const canvas = document.getElementById('landscape-canvas');
+  if (!canvas) return;
+  if (_terrainRafId) { cancelAnimationFrame(_terrainRafId); _terrainRafId = null; }
+
   const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth * 2;
-  canvas.height = canvas.offsetHeight * 2;
-  ctx.scale(2, 2);
-  const w = canvas.offsetWidth;
-  const h = canvas.offsetHeight;
+  const DPR = Math.min(2, window.devicePixelRatio || 1);
 
-  const avgEnergy = entries.reduce((s,e) => s + e.energy, 0) / entries.length;
-  const avgIntensity = entries.reduce((s,e) => s + e.intensity, 0) / entries.length;
-
-  const emotionCounts = {};
-  entries.forEach(e => e.emotions.forEach(em => emotionCounts[em] = (emotionCounts[em] || 0) + 1));
-  const sorted = Object.entries(emotionCounts).sort((a,b) => b[1] - a[1]);
-
-  // dreamy sky
-  const skyGrad = ctx.createLinearGradient(0, 0, w, h * 0.55);
-  const skyColors = avgEnergy > 6
-    ? ['#fce4c8', '#f8d0e0', '#d8c8f0']
-    : avgEnergy > 3
-    ? ['#d0d8f0', '#e0d0e8', '#d8e0f0']
-    : ['#8898b8', '#9088a8', '#7888a0'];
-  skyGrad.addColorStop(0, skyColors[0]);
-  skyGrad.addColorStop(0.5, skyColors[1]);
-  skyGrad.addColorStop(1, skyColors[2]);
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, w, h * 0.6);
-
-  // soft glow sun/moon
-  if (avgEnergy > 5) {
-    const sunGrad = ctx.createRadialGradient(w * 0.78, h * 0.15, 5, w * 0.78, h * 0.15, 50);
-    sunGrad.addColorStop(0, 'rgba(255,240,200,0.9)');
-    sunGrad.addColorStop(0.4, 'rgba(255,220,160,0.4)');
-    sunGrad.addColorStop(1, 'rgba(255,200,150,0)');
-    ctx.fillStyle = sunGrad;
-    ctx.fillRect(w * 0.58, 0, w * 0.42, h * 0.35);
-  } else {
-    const moonGrad = ctx.createRadialGradient(w * 0.78, h * 0.15, 5, w * 0.78, h * 0.15, 35);
-    moonGrad.addColorStop(0, 'rgba(220,225,245,0.95)');
-    moonGrad.addColorStop(0.5, 'rgba(200,210,235,0.3)');
-    moonGrad.addColorStop(1, 'rgba(180,190,220,0)');
-    ctx.fillStyle = moonGrad;
-    ctx.fillRect(w * 0.58, 0, w * 0.42, h * 0.35);
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width * DPR));
+    canvas.height = Math.max(1, Math.floor(rect.height * DPR));
   }
+  resize();
 
-  // stars if low energy
-  if (avgEnergy <= 4) {
-    for (let i = 0; i < 30; i++) {
-      ctx.beginPath();
-      ctx.arc(Math.random() * w, Math.random() * h * 0.4, 1 + Math.random(), 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.4})`;
-      ctx.fill();
-    }
-  }
+  // frequency distribution → ordered emotions (most → least frequent)
+  const counts = {};
+  EMOTIONS.forEach(e => counts[e.id] = 0);
+  entries.forEach(e => (e.emotions || []).forEach(id => { if (counts[id] !== undefined) counts[id]++; }));
+  const ranked = [...EMOTIONS].sort((a, b) => counts[b.id] - counts[a.id]);
+  const total = Math.max(1, entries.length);
+  // arousal average drives day/night feel
+  const avgArousal = entries.length
+    ? entries.reduce((s, e) => s + (typeof e.arousal === 'number' ? e.arousal : ((e.energy || 5) / 5 - 1)), 0) / entries.length
+    : 0.1;
 
-  // dreamy hills
-  const hillHeight = 0.15 + (avgIntensity / 10) * 0.25;
-  const baseY = h * 0.5;
-  const colors = sorted.slice(0, 4).map(([id]) => EMOTION_MAP[id].color);
-  if (colors.length === 0) colors.push('#c8b8d8');
+  const dayNight = Math.max(0, Math.min(1, (avgArousal + 1) / 2));  // 0 night → 1 day
 
-  for (let layer = 0; layer < Math.min(4, colors.length); layer++) {
-    ctx.beginPath();
-    ctx.moveTo(-10, h);
-    const segments = 8;
-    for (let i = 0; i <= segments; i++) {
-      const x = (i / segments) * (w + 20) - 10;
-      const peakH = hillHeight * h * (0.4 + Math.sin(i * 1.1 + layer * 1.8) * 0.6);
-      const y = baseY - peakH + layer * 18 + 10;
-      if (i === 0) ctx.lineTo(x, y);
-      else {
-        const cpx = x - (w + 20) / segments / 2;
-        ctx.quadraticCurveTo(cpx, y - 15, x, y);
-      }
-    }
-    ctx.lineTo(w + 10, h);
-    ctx.closePath();
-    const hillGrad = ctx.createLinearGradient(0, baseY - hillHeight * h, 0, h);
-    hillGrad.addColorStop(0, colors[layer] + '55');
-    hillGrad.addColorStop(1, colors[layer] + '22');
-    ctx.fillStyle = hillGrad;
-    ctx.fill();
-  }
-
-  // ground with soft gradient
-  const groundGrad = ctx.createLinearGradient(0, h * 0.65, 0, h);
-  const hasJoy = emotionCounts['joy'] || 0;
-  const hasSadness = emotionCounts['sadness'] || 0;
-  const groundBase = hasJoy > hasSadness ? [200,220,170] : hasSadness > hasJoy ? [150,175,195] : [185,205,165];
-  groundGrad.addColorStop(0, `rgba(${groundBase.join(',')},0.6)`);
-  groundGrad.addColorStop(1, `rgba(${groundBase.map(c=>c-20).join(',')},0.8)`);
-  ctx.fillStyle = groundGrad;
-  ctx.fillRect(0, h * 0.65, w, h * 0.35);
-
-  // elements
-  const elements = entries.slice(-20);
-  elements.forEach((entry, i) => {
-    const x = 30 + (i / Math.max(elements.length, 1)) * (w - 60);
-    const primary = entry.emotions[0];
-    const em = EMOTION_MAP[primary];
-    const baseElemY = h * 0.67 + Math.sin(i * 1.3) * 18;
-
-    if (primary === 'joy' || primary === 'love') drawDreamFlower(ctx, x, baseElemY, em, entry.intensity);
-    else if (primary === 'calm' || primary === 'wonder') drawDreamTree(ctx, x, baseElemY, em, entry.intensity);
-    else if (primary === 'sadness') drawDreamRain(ctx, x, baseElemY - 30, em);
-    else if (primary === 'anxiety') drawDreamSwirl(ctx, x, baseElemY - 15, em);
-    else if (primary === 'anger') drawDreamFlame(ctx, x, baseElemY, em, entry.intensity);
-    else if (primary === 'energy') drawDreamBolt(ctx, x, baseElemY - 25, em);
+  // pre-cached starfield (seeded)
+  const stars = Array.from({ length: 90 }, (_, i) => {
+    const s = Math.sin(i * 27.179) * 43758.5453;
+    const r = s - Math.floor(s);
+    const t = Math.sin(i * 13.37) * 91.57;
+    const r2 = t - Math.floor(t);
+    return { x: r, y: r2 * 0.55, tw: Math.floor(r * 997) };
   });
 
-  // grain on canvas
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 12;
-    data[i] += noise; data[i+1] += noise; data[i+2] += noise;
-  }
-  ctx.putImageData(imageData, 0, 0);
-}
+  function frame(tms) {
+    const t = (tms - _terrainStart) * 0.001;
+    const w = canvas.width / DPR;
+    const h = canvas.height / DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, w, h);
 
-function drawDreamFlower(ctx, x, y, em, intensity) {
-  const size = 6 + intensity * 1.2;
-  // glow
-  const glow = ctx.createRadialGradient(x, y - size, 0, x, y - size, size * 2.5);
-  glow.addColorStop(0, em.color + '30');
-  glow.addColorStop(1, em.color + '00');
-  ctx.fillStyle = glow;
-  ctx.fillRect(x - size * 3, y - size * 3.5, size * 6, size * 5);
+    // ---- SKY GRADIENT (mood-driven) ----
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    const nightSky = ['#11092b', '#2a1d4a', '#6d4272', '#d47e6e', '#f6d7a7', '#fbf6ed'];
+    const daySky   = ['#3b6bb0', '#79a6d6', '#e8c7b3', '#f8deb7', '#faeccb', '#fbf6ed'];
+    for (let i = 0; i < 6; i++) {
+      const n = nightSky[i], d = daySky[i];
+      sky.addColorStop(i / 5, lerpColor(n, d, dayNight));
+    }
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
 
-  const petals = 6;
-  for (let i = 0; i < petals; i++) {
-    const angle = (i / petals) * Math.PI * 2 - Math.PI/2;
+    // ---- STARS (night bias) ----
+    const starAlpha = (1 - dayNight) * 0.85;
+    if (starAlpha > 0.04) {
+      stars.forEach((s, i) => {
+        const x = s.x * w;
+        const y = s.y * h;
+        const tw = 0.5 + 0.5 * Math.sin(t * 1.4 + s.tw);
+        ctx.globalAlpha = starAlpha * (0.3 + 0.7 * tw);
+        ctx.fillStyle = '#fff7dd';
+        ctx.beginPath();
+        ctx.arc(x, y, 0.6 + tw * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- SUN/MOON with soft halo ----
+    const cx = w * 0.76, cy = h * 0.22;
+    const sunR = 28;
+    const haloG = ctx.createRadialGradient(cx, cy, 0, cx, cy, sunR * 4);
+    const warm = dayNight > 0.5 ? 'rgba(255, 232, 170,' : 'rgba(230, 215, 245,';
+    haloG.addColorStop(0, warm + '0.55)');
+    haloG.addColorStop(0.4, warm + '0.18)');
+    haloG.addColorStop(1, warm + '0)');
+    ctx.fillStyle = haloG;
+    ctx.fillRect(0, 0, w, h);
+    const sunG = ctx.createRadialGradient(cx - 7, cy - 7, 0, cx, cy, sunR);
+    sunG.addColorStop(0, dayNight > 0.5 ? '#fff3d6' : '#ede4f5');
+    sunG.addColorStop(1, dayNight > 0.5 ? '#f2c99a' : '#c5b5d8');
+    ctx.fillStyle = sunG;
     ctx.beginPath();
-    ctx.ellipse(x + Math.cos(angle) * size * 0.55, y - size + Math.sin(angle) * size * 0.55, size * 0.45, size * 0.25, angle, 0, Math.PI * 2);
-    ctx.fillStyle = em.color + 'aa';
+    ctx.arc(cx, cy, sunR, 0, Math.PI * 2);
     ctx.fill();
+
+    // ---- MOUNTAIN LAYERS (6 bands, back to front, colored by top emotions) ----
+    const layers = Math.min(6, ranked.length);
+    for (let i = 0; i < layers; i++) {
+      const progress = i / Math.max(1, layers - 1);    // 0 back, 1 front
+      const em = ranked[i];
+      const ratio = counts[em.id] / total;
+      const amp = 20 + ratio * 70 + progress * 8;      // taller for frequent emotions
+      const yBase = h * (0.45 + progress * 0.38);
+      const phase = t * 0.12 + i * 1.6;
+      const freq = 0.008 + i * 0.0022;
+
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 2) {
+        const noise =
+          Math.sin(x * freq + phase) * 0.6 +
+          Math.sin(x * freq * 2.1 + phase * 1.25) * 0.28 +
+          Math.sin(x * freq * 0.55 + phase * 0.4) * 0.4;
+        const y = yBase - noise * amp;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.closePath();
+
+      const [r, g, b] = hexToRgb(em.color);
+      const darken = 0.55 + progress * 0.4;
+      const alpha = 0.62 + progress * 0.3;
+      ctx.fillStyle = `rgba(${Math.round(r * darken)},${Math.round(g * darken)},${Math.round(b * darken)},${alpha})`;
+      ctx.fill();
+
+      // ridge highlight on front-most mountains
+      if (progress > 0.6) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighten';
+        ctx.strokeStyle = `rgba(255, 240, 210, ${0.08 + progress * 0.1})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += 2) {
+          const noise =
+            Math.sin(x * freq + phase) * 0.6 +
+            Math.sin(x * freq * 2.1 + phase * 1.25) * 0.28 +
+            Math.sin(x * freq * 0.55 + phase * 0.4) * 0.4;
+          const y = yBase - noise * amp;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // ---- FOREGROUND: emotion flowers scattered along the ground ----
+    const flowerRows = 40;
+    for (let i = 0; i < flowerRows; i++) {
+      const seed = Math.sin(i * 12.9898) * 43758.5453;
+      const xR = seed - Math.floor(seed);
+      const x = xR * w;
+      const yR = (Math.sin(i * 7.77 + 3) + 1) / 2;
+      const y = h * (0.88 + yR * 0.1);
+      const em = ranked[i % Math.max(1, ranked.length)];
+      const bob = Math.sin(t * 1.1 + i * 1.7) * 1.5;
+      const [r, g, b] = hexToRgb(em.color);
+      ctx.fillStyle = `rgba(${r},${g},${b},0.82)`;
+      ctx.beginPath();
+      ctx.arc(x, y + bob, 2.2 + (i % 3) * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = `rgba(${r},${g},${b},0.22)`;
+      ctx.beginPath();
+      ctx.arc(x, y + bob, 5 + (i % 3), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    _terrainRafId = requestAnimationFrame(frame);
   }
-  ctx.beginPath();
-  ctx.arc(x, y - size, 3, 0, Math.PI * 2);
-  ctx.fillStyle = '#fff8e0cc';
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(x, y - size + 3); ctx.lineTo(x, y);
-  ctx.strokeStyle = '#8aaa7a88';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+
+  _terrainStart = performance.now();
+  _terrainRafId = requestAnimationFrame(frame);
 }
 
-function drawDreamTree(ctx, x, y, em, intensity) {
-  const th = 18 + intensity * 3;
-  ctx.beginPath();
-  ctx.moveTo(x, y); ctx.lineTo(x, y - th * 0.5);
-  ctx.strokeStyle = '#a09080aa';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  const r = 10 + intensity * 1.2;
-  const glow = ctx.createRadialGradient(x, y - th * 0.5 - 6, 0, x, y - th * 0.5 - 6, r * 2);
-  glow.addColorStop(0, em.color + '50');
-  glow.addColorStop(1, em.color + '00');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(x, y - th * 0.5 - 6, r * 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(x, y - th * 0.5 - 6, r, 0, Math.PI * 2);
-  ctx.fillStyle = em.color + '88';
-  ctx.fill();
+// blend two hex colors (t in [0,1])
+function lerpColor(hex1, hex2, tt) {
+  const [r1, g1, b1] = hexToRgb(hex1);
+  const [r2, g2, b2] = hexToRgb(hex2);
+  const r = Math.round(r1 + (r2 - r1) * tt);
+  const g = Math.round(g1 + (g2 - g1) * tt);
+  const b = Math.round(b1 + (b2 - b1) * tt);
+  return `rgb(${r},${g},${b})`;
 }
 
-function drawDreamRain(ctx, x, y, em) {
-  const glow = ctx.createRadialGradient(x, y + 5, 0, x, y + 5, 25);
-  glow.addColorStop(0, em.color + '25');
-  glow.addColorStop(1, em.color + '00');
-  ctx.fillStyle = glow;
-  ctx.fillRect(x - 25, y - 20, 50, 50);
+// ---- WORLD CHAT / MESSAGES ----
+const CHAT_USERS = [
+  { id: 'rhea', name: 'Rhea',  hue: '#c27b5e' },
+  { id: 'kai',  name: 'Kai',   hue: '#6b8fd4' },
+  { id: 'mira', name: 'Mira',  hue: '#6fc8a3' },
+  { id: 'jun',  name: 'Jun',   hue: '#f5b841' },
+  { id: 'sol',  name: 'Sol',   hue: '#f49eb0' },
+  { id: 'theo', name: 'Theo',  hue: '#a89c82' },
+  { id: 'nara', name: 'Nara',  hue: '#5ac8fa' },
+  { id: 'etta', name: 'Etta',  hue: '#e8635f' }
+];
+const CHAT_USER_MAP = Object.fromEntries(CHAT_USERS.map(u => [u.id, u]));
 
-  for (let i = 0; i < 5; i++) {
-    ctx.beginPath();
-    const rx = x - 10 + i * 5;
-    ctx.moveTo(rx, y + i * 2);
-    ctx.lineTo(rx - 1.5, y + 10 + i * 2);
-    ctx.strokeStyle = em.color + '66';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  }
+// seed messages — times are "minutes ago"
+const SEED_CHAT = [
+  { userId: 'rhea', emotion: 'anxiety', place: 'Doe Library',         lat: 37.8721, lng: -122.2585, note: 'midterm in 45 min, spiraling', minsAgo: 4 },
+  { userId: 'kai',  emotion: 'joy',     place: 'Memorial Glade',      lat: 37.8720, lng: -122.2591, note: 'spring is finally here',         minsAgo: 12 },
+  { userId: 'mira', emotion: 'calm',    place: 'Strawberry Creek',    lat: 37.8702, lng: -122.2605, note: 'reading on the bank, no rush',   minsAgo: 28 },
+  { userId: 'jun',  emotion: 'energy',  place: 'Soda Hall',           lat: 37.8753, lng: -122.2583, note: "a bug I couldn't crack cracked itself", minsAgo: 47 },
+  { userId: 'sol',  emotion: 'love',    place: 'Caffe Strada',        lat: 37.8692, lng: -122.2545, note: 'coffee x2 and she laughed',      minsAgo: 72 },
+  { userId: 'theo', emotion: 'wonder',  place: 'Campanile',           lat: 37.8721, lng: -122.2578, note: 'fog over the bay, the bells',    minsAgo: 98 },
+  { userId: 'nara', emotion: 'sadness', place: 'Dwinelle Hall',       lat: 37.8706, lng: -122.2603, note: 'wrong grade. reshaping.',        minsAgo: 135 },
+  { userId: 'etta', emotion: 'anger',   place: 'RSF Gym',             lat: 37.8687, lng: -122.2626, note: 'they took my treadmill AGAIN',   minsAgo: 186 },
+  { userId: 'rhea', emotion: 'calm',    place: 'Tilden Park',         lat: 37.8912, lng: -122.2444, note: 'hiking killed the spiral',       minsAgo: 360 },
+  { userId: 'jun',  emotion: 'wonder',  place: 'Lawrence Hall',       lat: 37.8786, lng: -122.2461, note: 'mercury was visible tonight',    minsAgo: 1190 },
+  { userId: 'mira', emotion: 'joy',     place: 'North Gate',          lat: 37.8744, lng: -122.2600, note: '☀️ first day without a jacket', minsAgo: 1630 },
+  { userId: 'sol',  emotion: 'anxiety', place: 'Wheeler Hall',        lat: 37.8712, lng: -122.2593, note: 'econ final... pray for me',      minsAgo: 2210 },
+];
+
+// session-only extra messages the user "posts" via the composer
+let _chatSessionExtras = [];
+let chatFilter = 'all';
+
+function initialsOf(name) {
+  return name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase();
 }
 
-function drawDreamSwirl(ctx, x, y, em) {
-  ctx.beginPath();
-  for (let a = 0; a < Math.PI * 5; a += 0.15) {
-    const r = a * 1.2;
-    ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
-  }
-  ctx.strokeStyle = em.color + '55';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-
-  const glow = ctx.createRadialGradient(x, y, 0, x, y, 20);
-  glow.addColorStop(0, em.color + '20');
-  glow.addColorStop(1, em.color + '00');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(x, y, 20, 0, Math.PI * 2);
-  ctx.fill();
+function buildChatFeed() {
+  const now = Date.now();
+  const seeded = SEED_CHAT.map((m, i) => ({
+    id: 'seed-' + i,
+    kind: 'other',
+    userId: m.userId,
+    userName: CHAT_USER_MAP[m.userId].name,
+    hue: CHAT_USER_MAP[m.userId].hue,
+    emotion: m.emotion,
+    place: m.place,
+    lat: m.lat, lng: m.lng,
+    note: m.note,
+    timestamp: new Date(now - m.minsAgo * 60 * 1000).toISOString()
+  }));
+  const mine = entries.map(e => ({
+    id: 'mine-' + e.id,
+    kind: 'self',
+    userId: 'you',
+    userName: 'You',
+    hue: '#1f1e1c',
+    emotion: (e.emotions || [])[0] || 'joy',
+    place: e.placeName || `${e.lat.toFixed(3)}, ${e.lng.toFixed(3)}`,
+    lat: e.lat, lng: e.lng,
+    note: e.note || '',
+    timestamp: e.timestamp
+  }));
+  return [...seeded, ..._chatSessionExtras, ...mine]
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
-function drawDreamFlame(ctx, x, y, em, intensity) {
-  const fh = 12 + intensity * 2.5;
-  const glow = ctx.createRadialGradient(x, y - fh * 0.5, 0, x, y - fh * 0.5, fh);
-  glow.addColorStop(0, em.color + '30');
-  glow.addColorStop(1, em.color + '00');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(x, y - fh * 0.5, fh, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.quadraticCurveTo(x - 7, y - fh * 0.6, x, y - fh);
-  ctx.quadraticCurveTo(x + 7, y - fh * 0.6, x, y);
-  ctx.fillStyle = em.color + '88';
-  ctx.fill();
+function setChatFilter(f) {
+  chatFilter = f;
+  document.querySelectorAll('.chat-filter').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === f);
+  });
+  renderChat();
 }
 
-function drawDreamBolt(ctx, x, y, em) {
-  const glow = ctx.createRadialGradient(x, y + 12, 0, x, y + 12, 20);
-  glow.addColorStop(0, em.color + '35');
-  glow.addColorStop(1, em.color + '00');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(x, y + 12, 20, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + 5, y + 12);
-  ctx.lineTo(x + 1, y + 12);
-  ctx.lineTo(x + 3, y + 24);
-  ctx.lineTo(x - 4, y + 10);
-  ctx.lineTo(x, y + 10);
-  ctx.closePath();
-  ctx.fillStyle = em.color + '99';
-  ctx.fill();
-}
-
-// ---- JOURNAL ----
-let journalFilter = null;
-
-function renderJournalFilters() {
-  const counts = {};
-  entries.forEach(e => e.emotions.forEach(em => counts[em] = (counts[em]||0) + 1));
-  const container = document.getElementById('journal-filters');
-  const chips = [
-    `<div class="filter-chip ${journalFilter === null ? 'active' : ''}" onclick="setJournalFilter(null)">All</div>`,
-    ...EMOTIONS.filter(e => counts[e.id]).map(e =>
-      `<div class="filter-chip ${journalFilter === e.id ? 'active' : ''}" onclick="setJournalFilter('${e.id}')">${e.emoji} ${e.label}</div>`
-    )
-  ];
-  container.innerHTML = chips.join('');
-}
-
-function setJournalFilter(id) {
-  journalFilter = id;
-  renderJournal();
-}
-
-function renderJournal() {
-  const container = document.getElementById('journal-entries');
-
-  // aside stats
-  document.getElementById('jr-entries').textContent = entries.length;
-  const places = new Set(entries.map(e => `${e.lat.toFixed(3)},${e.lng.toFixed(3)}`)).size;
-  document.getElementById('jr-places').textContent = places;
-  const days = new Set(entries.map(e => new Date(e.timestamp).toDateString())).size;
-  document.getElementById('jr-days').textContent = days;
-  renderJournalFilters();
-
-  const shown = journalFilter
-    ? entries.filter(e => e.emotions.includes(journalFilter))
-    : entries;
-  document.getElementById('journal-count-label').textContent =
-    `${shown.length} ${shown.length === 1 ? 'entry' : 'entries'}${journalFilter ? ' · filtered' : ''}`;
+function renderChat() {
+  const list = document.getElementById('chat-list');
+  if (!list) return;
+  const feed = buildChatFeed();
+  const shown = chatFilter === 'mine'   ? feed.filter(m => m.kind === 'self')
+              : chatFilter === 'others' ? feed.filter(m => m.kind === 'other')
+              : feed;
 
   if (shown.length === 0) {
-    container.innerHTML = `<div class="empty-state"><h3>${entries.length === 0 ? 'Your journal is empty' : 'No matching entries'}</h3>
-      <p>${entries.length === 0 ? 'Go to the Map, click a spot in Berkeley, and log your first feeling. It will appear here.' : 'Try a different filter or clear it.'}</p></div>`;
+    list.innerHTML = `<div class="chat-empty">
+      <h3>Nothing here yet</h3>
+      <p>Log a feeling on the map and it will land in this feed.</p>
+    </div>`;
     return;
   }
-  container.innerHTML = [...shown].reverse().map(entry => {
-    const primary = EMOTION_MAP[entry.emotions[0]];
-    const time = new Date(entry.timestamp);
-    const tags = entry.emotions.map(id => {
-      const em = EMOTION_MAP[id];
-      return `<span class="tag" style="background:${em.color}22;color:${em.color};">${em.emoji} ${em.label}</span>`;
-    }).join('');
-    const triggerTags = entry.triggers.map(t =>
-      `<span class="tag" style="background:var(--fill-tertiary);color:var(--label-secondary);">${t}</span>`
-    ).join('');
-    return `<div class="journal-card">
-      <div class="emotion-badge" style="--badge-color: radial-gradient(circle at 30% 25%, ${primary.color}, ${primary.color}dd); --badge-shadow: ${primary.glow};">
-        ${primary.emoji}
-      </div>
-      <div class="journal-body">
-        <div class="journal-meta">
-          <span>${time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
-          <span>${time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
-          <span>Intensity ${entry.intensity}/10</span>
-          <span>Energy ${entry.energy}/10</span>
+
+  list.innerHTML = shown.map(m => {
+    const em = EMOTION_MAP[m.emotion] || EMOTIONS[0];
+    const time = new Date(m.timestamp);
+    const rel = formatRelTime(m.timestamp);
+    return `<div class="chat-msg ${m.kind === 'self' ? 'self' : ''}" data-id="${m.id}" style="--em-color:${em.color};">
+      <div class="chat-avatar" style="--user-hue:${m.hue};">${initialsOf(m.userName)}</div>
+      <div class="chat-msg-body">
+        <div class="chat-msg-head">
+          <span class="chat-username">${m.userName}</span>
+          <span class="chat-emotion-chip" style="color:${em.color};">${em.label}</span>
+          <span class="chat-time">${rel}</span>
         </div>
-        ${entry.note ? `<div class="journal-text">${entry.note}</div>` : '<div class="journal-text" style="color:var(--label-tertiary);font-style:italic;">No note</div>'}
-        <div class="journal-tags">${tags}${triggerTags}</div>
+        <div class="chat-msg-place">at <em>${m.place}</em></div>
+        ${m.note ? `<div class="chat-msg-note">${m.note}</div>` : ''}
+        <div class="chat-msg-coords">${m.lat.toFixed(4)}, ${m.lng.toFixed(4)} · ${time.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
       </div>
     </div>`;
   }).join('');
+
+  list.querySelectorAll('.chat-msg').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      const msg = buildChatFeed().find(m => m.id === id);
+      if (msg && map) {
+        switchView('map');
+        setTimeout(() => map.flyTo({ center: [msg.lng, msg.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 }), 200);
+      }
+    });
+  });
+}
+
+function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  // derive a mood: use current affect if set, else joy
+  const emotion = affectState
+    ? nearestEmotion(affectState.valence, affectState.arousal).id
+    : 'joy';
+  // use current map center as "place"
+  const center = map && map.getCenter ? map.getCenter() : { lat: 37.8716, lng: -122.2727 };
+  const place = (map && findPlaceName(center.lng, center.lat)) || 'somewhere on campus';
+  _chatSessionExtras.push({
+    id: 'you-' + Date.now(),
+    kind: 'self',
+    userId: 'you',
+    userName: 'You',
+    hue: '#1f1e1c',
+    emotion,
+    place,
+    lat: center.lat, lng: center.lng,
+    note: text,
+    timestamp: new Date().toISOString()
+  });
+  input.value = '';
+  renderChat();
 }
 
 document.getElementById('modal-overlay').addEventListener('click', function(e) {

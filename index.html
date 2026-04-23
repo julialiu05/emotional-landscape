@@ -103,7 +103,7 @@
       <line x1="8" y1="12" x2="16" y2="12"/>
       <line x1="8" y1="16" x2="13" y2="16"/>
     </svg>
-    <span class="tab-item-label">Journal</span>
+    <span class="tab-item-label">Messages</span>
   </button>
 </div>
 
@@ -223,30 +223,44 @@
   </div>
 </div>
 
-<!-- JOURNAL VIEW -->
+<!-- MESSAGES VIEW (world chat with terrain hero) -->
 <div id="journal-view" class="view">
-  <div class="journal-header">
-    <div>
-      <p>Reflections mapped in place and time</p>
-    </div>
-    <div class="dash-header-meta">
-      <span id="journal-count-label">0 entries</span>
+  <div class="chat-hero">
+    <svg class="chat-hero-silhouette" viewBox="0 0 1200 240" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="hero-sky" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0"   stop-color="#2a1d4a"/>
+          <stop offset="0.35" stop-color="#6d4272"/>
+          <stop offset="0.65" stop-color="#d47e6e"/>
+          <stop offset="0.88" stop-color="#f2c79a"/>
+          <stop offset="1"   stop-color="#fbf6ed"/>
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="240" fill="url(#hero-sky)"/>
+      <circle cx="880" cy="74" r="36" fill="rgba(255,240,200,0.85)"/>
+      <circle cx="880" cy="74" r="72" fill="rgba(255,220,160,0.16)"/>
+      <path d="M0 180 L140 118 L260 158 L400 108 L540 156 L680 104 L820 148 L960 108 L1100 142 L1200 116 L1200 240 L0 240 Z" fill="rgba(109, 66, 114, 0.82)"/>
+      <path d="M0 210 L100 156 L220 202 L360 140 L500 196 L640 148 L780 204 L920 146 L1060 198 L1200 168 L1200 240 L0 240 Z" fill="rgba(212, 126, 110, 0.85)"/>
+      <path d="M0 232 L90 200 L210 226 L340 188 L480 220 L640 184 L780 224 L920 192 L1060 222 L1200 204 L1200 240 L0 240 Z" fill="rgba(176, 103, 92, 0.92)"/>
+    </svg>
+    <div class="chat-hero-text">
+      <div class="chat-hero-eyebrow">World Chat</div>
+      <h1>Messages</h1>
+      <p>Feelings logged, live, across the landscape.</p>
     </div>
   </div>
-  <div class="journal-body-grid">
-    <aside class="journal-aside">
-      <div class="journal-aside-card">
-        <div class="journal-aside-title">Filter by feeling</div>
-        <div class="filter-chips" id="journal-filters"></div>
-      </div>
-      <div class="journal-aside-card">
-        <div class="journal-aside-title">This Collection</div>
-        <div class="map-info-row"><span class="k">Entries</span><span class="v" id="jr-entries">0</span></div>
-        <div class="map-info-row"><span class="k">Places</span><span class="v" id="jr-places">0</span></div>
-        <div class="map-info-row"><span class="k">Days</span><span class="v" id="jr-days">0</span></div>
-      </div>
-    </aside>
-    <div class="journal-entries" id="journal-entries"></div>
+
+  <div class="chat-body">
+    <div class="chat-filter-row">
+      <button class="chat-filter active" data-filter="all" onclick="setChatFilter('all')">All</button>
+      <button class="chat-filter" data-filter="mine" onclick="setChatFilter('mine')">You</button>
+      <button class="chat-filter" data-filter="others" onclick="setChatFilter('others')">Everyone</button>
+    </div>
+    <div class="chat-list" id="chat-list"></div>
+    <div class="chat-composer">
+      <input type="text" id="chat-input" placeholder="Share how you're feeling..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+      <button class="chat-send" onclick="sendChatMessage()">Send</button>
+    </div>
   </div>
 </div>
 
@@ -300,13 +314,17 @@
   <div class="affect-panel">
     <div class="affect-header">
       <h2>How are you, <em>right now</em>?</h2>
-      <p>Place a dot. The landscape will tune itself to your mood.</p>
+      <p>Tap where you are. The landscape will tune itself to your mood.</p>
+    </div>
+    <div class="affect-readout">
+      <span class="affect-readout-name" id="affect-readout-name">neutral</span>
+      <span class="affect-readout-axes" id="affect-readout-axes">tap the field</span>
     </div>
     <div class="affect-pad" id="affect-pad">
-      <div class="affect-axis-label affect-axis-top">high energy</div>
-      <div class="affect-axis-label affect-axis-bottom">low energy</div>
-      <div class="affect-axis-label affect-axis-left">unpleasant</div>
-      <div class="affect-axis-label affect-axis-right">pleasant</div>
+      <div class="affect-axis-label affect-axis-top">high energy ↑</div>
+      <div class="affect-axis-label affect-axis-bottom">low energy ↓</div>
+      <div class="affect-axis-label affect-axis-left">← unpleasant</div>
+      <div class="affect-axis-label affect-axis-right">pleasant →</div>
       <div class="affect-quadrant-label q-tl">tense</div>
       <div class="affect-quadrant-label q-tr">excited</div>
       <div class="affect-quadrant-label q-bl">sad</div>
