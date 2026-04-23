@@ -144,6 +144,34 @@ EMOTIONS.forEach(e => EMOTION_MAP[e.id] = e);
 let entries = JSON.parse(localStorage.getItem('el_entries') || '[]');
 let pendingLatLng = null;
 
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.substr(0, 2), 16),
+    parseInt(h.substr(2, 2), 16),
+    parseInt(h.substr(4, 2), 16)
+  ];
+}
+
+function refreshFeelingsSource() {
+  const src = map && map.getSource && map.getSource('el-feelings');
+  if (!src) return;
+  const features = [];
+  entries.forEach(entry => {
+    entry.emotions.forEach(emId => {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [entry.lng, entry.lat] },
+        properties: {
+          emotion: emId,
+          weight: Math.max(0.25, (entry.intensity || 5) / 10)
+        }
+      });
+    });
+  });
+  src.setData({ type: 'FeatureCollection', features });
+}
+
 // ---- MAP (MapLibre GL — 3D pitched view, OpenFreeMap tiles) ----
 const map = new maplibregl.Map({
   container: 'map',
@@ -201,12 +229,58 @@ map.on('load', () => {
     }
   });
 
-  // 3D building extrusion — the Apple Maps style lift
+  // find the first label layer — everything we add before it draws under labels
   const layers = map.getStyle().layers;
   let firstSymbolId;
   for (const layer of layers) {
     if (layer.type === 'symbol') { firstSymbolId = layer.id; break; }
   }
+
+  // emotional wash — one heatmap layer per emotion, sharing a single source
+  if (!map.getSource('el-feelings')) {
+    map.addSource('el-feelings', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+  }
+
+  EMOTIONS.forEach(em => {
+    const [r, g, b] = hexToRgb(em.color);
+    const layerId = `el-wash-${em.id}`;
+    if (map.getLayer(layerId)) return;
+    map.addLayer({
+      id: layerId,
+      type: 'heatmap',
+      source: 'el-feelings',
+      filter: ['==', ['get', 'emotion'], em.id],
+      paint: {
+        'heatmap-weight': ['coalesce', ['get', 'weight'], 0.5],
+        'heatmap-intensity': [
+          'interpolate', ['linear'], ['zoom'],
+          12, 0.9,
+          16, 1.6,
+          19, 2.4
+        ],
+        'heatmap-radius': [
+          'interpolate', ['linear'], ['zoom'],
+          12, 22,
+          16, 70,
+          19, 140
+        ],
+        'heatmap-color': [
+          'interpolate', ['linear'], ['heatmap-density'],
+          0,    `rgba(${r},${g},${b},0)`,
+          0.12, `rgba(${r},${g},${b},0.18)`,
+          0.35, `rgba(${r},${g},${b},0.40)`,
+          0.65, `rgba(${r},${g},${b},0.62)`,
+          1,    `rgba(${r},${g},${b},0.78)`
+        ],
+        'heatmap-opacity': 0.72
+      }
+    }, firstSymbolId);
+  });
+
+  // 3D building extrusion — added AFTER heatmaps so buildings occlude the wash
   if (!map.getLayer('el-3d-buildings')) {
     map.addLayer({
       id: 'el-3d-buildings',
@@ -238,8 +312,9 @@ map.on('load', () => {
     }, firstSymbolId);
   }
 
-  // once tiles are styled, drop any existing markers
+  // once tiles are styled, drop any existing markers + paint the wash
   renderMarkers();
+  refreshFeelingsSource();
 });
 
 map.on('click', function(e) {
@@ -476,6 +551,7 @@ function submitEntry() {
   entries.push(entry);
   localStorage.setItem('el_entries', JSON.stringify(entries));
   addMarker(entry);
+  refreshFeelingsSource();
   closeModal();
   document.getElementById('map-hint').style.opacity = '0';
   updateSidebarStats();
