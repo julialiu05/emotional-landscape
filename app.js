@@ -285,6 +285,74 @@ function showNearby() {
   map.flyTo({ center: [last.lng, last.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
 }
 
+// ---- WORLD CHAT / LIVE FEED ----
+function findPlaceName(lng, lat) {
+  if (!map || !map.loaded || !map.loaded()) return null;
+  try {
+    const p = map.project([lng, lat]);
+    const bbox = [[p.x - 60, p.y - 60], [p.x + 60, p.y + 60]];
+    const feats = map.queryRenderedFeatures(bbox);
+    const pickNamed = (predicate) => {
+      const hit = feats.find(f => predicate(f) && f.properties && (f.properties.name || f.properties.name_en));
+      return hit ? (hit.properties.name_en || hit.properties.name) : null;
+    };
+    return (
+      pickNamed(f => (f.sourceLayer || '').toLowerCase().includes('poi')) ||
+      pickNamed(f => (f.sourceLayer || '').toLowerCase().includes('building')) ||
+      pickNamed(f => (f.sourceLayer || '').toLowerCase().includes('transportation')) ||
+      pickNamed(() => true)
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
+function formatRelTime(iso) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 45) return 'just now';
+  if (diff < 3600) return Math.max(1, Math.floor(diff / 60)) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+function renderWorldChat() {
+  const feed = document.getElementById('world-chat-feed');
+  const count = document.getElementById('wc-count');
+  if (!feed) return;
+  if (count) count.textContent = entries.length;
+
+  if (entries.length === 0) {
+    feed.innerHTML = `<div class="wc-empty">No check-ins yet. Drop the pin to begin.</div>`;
+    return;
+  }
+
+  const recent = [...entries].reverse().slice(0, 24);
+  feed.innerHTML = recent.map(e => {
+    const em = EMOTION_MAP[e.emotions && e.emotions[0]] || EMOTIONS[0];
+    const place = e.placeName ? e.placeName : `${e.lat.toFixed(3)}, ${e.lng.toFixed(3)}`;
+    const coords = `${e.lat.toFixed(4)}, ${e.lng.toFixed(4)}`;
+    return `
+      <div class="wc-message" data-id="${e.id}" style="--m-color:${em.color};">
+        <span class="emo-dot"></span>
+        <div class="body">
+          <div class="line">
+            <span class="emo-label">${em.label}</span>
+            <span class="place-txt">logged at ${place}</span>
+          </div>
+          <div class="meta">${coords} · ${formatRelTime(e.timestamp)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  feed.querySelectorAll('.wc-message').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = parseInt(el.dataset.id, 10);
+      const entry = entries.find(x => x.id === id);
+      if (entry && map) map.flyTo({ center: [entry.lng, entry.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
+    });
+  });
+}
+
 function refreshFeelingsSource() {
   const src = map && map.getSource && map.getSource('el-feelings');
   if (!src) return;
@@ -486,10 +554,10 @@ map.on('load', () => {
       paint: {
         'fill-extrusion-color': [
           'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
-          0, '#f2dcd1',
-          20, '#e8c5c1',
-          60, '#d9a7a0',
-          150, '#c89191'
+          0, '#f0ebde',
+          20, '#e3dccb',
+          60, '#cfc6ae',
+          150, '#a89b80'
         ],
         'fill-extrusion-height': [
           'interpolate', ['linear'], ['zoom'],
@@ -507,9 +575,10 @@ map.on('load', () => {
     }, firstSymbolId);
   }
 
-  // once tiles are styled, drop any existing markers + paint the wash
+  // once tiles are styled, drop any existing markers + paint the wash + prime feed
   renderMarkers();
   refreshFeelingsSource();
+  renderWorldChat();
   if (affectState) applyAffect(affectState);
 });
 
@@ -840,6 +909,8 @@ function submitEntry() {
   const triggers = [...document.querySelectorAll('.trigger-chip.selected')]
     .map(el => el.dataset.trigger);
 
+  const placeName = findPlaceName(pendingLatLng.lng, pendingLatLng.lat);
+
   const entry = {
     id: Date.now(),
     lat: pendingLatLng.lat,
@@ -853,11 +924,13 @@ function submitEntry() {
     triggers,
     timestamp: new Date().toISOString()
   };
+  if (placeName) entry.placeName = placeName;
 
   entries.push(entry);
   localStorage.setItem('el_entries', JSON.stringify(entries));
   addMarker(entry);
   refreshFeelingsSource();
+  renderWorldChat();
   closeModal();
   document.getElementById('map-hint').style.opacity = '0';
   updateSidebarStats();
