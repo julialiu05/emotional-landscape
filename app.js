@@ -244,38 +244,62 @@ map.on('load', () => {
     });
   }
 
+  // ground-aligned circle wash — lies flat on the world, stretches with perspective,
+  // occluded by buildings. Two layers per emotion: a wide soft halo + a tight core,
+  // stacking to give a radial falloff that sits in the 3D scene.
   EMOTIONS.forEach(em => {
-    const [r, g, b] = hexToRgb(em.color);
-    const layerId = `el-wash-${em.id}`;
-    if (map.getLayer(layerId)) return;
+    const haloId = `el-wash-${em.id}-halo`;
+    const coreId = `el-wash-${em.id}-core`;
+    if (map.getLayer(haloId)) map.removeLayer(haloId);
+    if (map.getLayer(coreId)) map.removeLayer(coreId);
+
     map.addLayer({
-      id: layerId,
-      type: 'heatmap',
+      id: haloId,
+      type: 'circle',
       source: 'el-feelings',
       filter: ['==', ['get', 'emotion'], em.id],
       paint: {
-        'heatmap-weight': ['coalesce', ['get', 'weight'], 0.5],
-        'heatmap-intensity': [
+        'circle-color': em.color,
+        'circle-pitch-alignment': 'map',
+        'circle-pitch-scale': 'map',
+        'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
-          12, 0.9,
-          16, 1.6,
-          19, 2.4
+          12, 18,
+          15, 48,
+          17, 90,
+          19, 180
         ],
-        'heatmap-radius': [
+        'circle-blur': 1,
+        'circle-opacity': [
+          'interpolate', ['linear'], ['coalesce', ['get', 'weight'], 0.5],
+          0.25, 0.16,
+          1,    0.32
+        ]
+      }
+    }, firstSymbolId);
+
+    map.addLayer({
+      id: coreId,
+      type: 'circle',
+      source: 'el-feelings',
+      filter: ['==', ['get', 'emotion'], em.id],
+      paint: {
+        'circle-color': em.color,
+        'circle-pitch-alignment': 'map',
+        'circle-pitch-scale': 'map',
+        'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
-          12, 22,
-          16, 70,
-          19, 140
+          12, 8,
+          15, 20,
+          17, 40,
+          19, 80
         ],
-        'heatmap-color': [
-          'interpolate', ['linear'], ['heatmap-density'],
-          0,    `rgba(${r},${g},${b},0)`,
-          0.12, `rgba(${r},${g},${b},0.18)`,
-          0.35, `rgba(${r},${g},${b},0.40)`,
-          0.65, `rgba(${r},${g},${b},0.62)`,
-          1,    `rgba(${r},${g},${b},0.78)`
-        ],
-        'heatmap-opacity': 0.72
+        'circle-blur': 0.8,
+        'circle-opacity': [
+          'interpolate', ['linear'], ['coalesce', ['get', 'weight'], 0.5],
+          0.25, 0.22,
+          1,    0.45
+        ]
       }
     }, firstSymbolId);
   });
