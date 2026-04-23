@@ -186,16 +186,18 @@ map.on('load', () => {
     tint(id, 'line-opacity', 0.95);
   });
 
-  // remove any existing building extrusion the style ships with (prevents z-fighting)
-  // and hide flat building footprints (coplanar with extrusion base → also z-fights)
+  // remove / hide every building-related layer the style ships with,
+  // so only our single extrusion draws (prevents z-fighting + stripe artifacts)
   const existingLayers = map.getStyle().layers;
   existingLayers.forEach(l => {
-    if (l['source-layer'] === 'building') {
-      if (l.type === 'fill-extrusion') {
-        map.removeLayer(l.id);
-      } else if (l.type === 'fill') {
-        try { map.setPaintProperty(l.id, 'fill-opacity', 0); } catch (_) {}
-      }
+    const isBuildingLayer = l['source-layer'] === 'building' || (l.id && l.id.toLowerCase().includes('building'));
+    if (!isBuildingLayer) return;
+    if (l.type === 'fill-extrusion') {
+      map.removeLayer(l.id);
+    } else if (l.type === 'fill') {
+      try { map.setPaintProperty(l.id, 'fill-opacity', 0); } catch (_) {}
+    } else if (l.type === 'line') {
+      try { map.setPaintProperty(l.id, 'line-opacity', 0); } catch (_) {}
     }
   });
 
@@ -230,8 +232,8 @@ map.on('load', () => {
           14, 0,
           15.05, ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0]
         ],
-        'fill-extrusion-opacity': 0.92,
-        'fill-extrusion-vertical-gradient': true
+        'fill-extrusion-opacity': 1,
+        'fill-extrusion-vertical-gradient': false
       }
     }, firstSymbolId);
   }
