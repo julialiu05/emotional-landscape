@@ -7,6 +7,7 @@ function checkAuth() {
     document.getElementById('login-page').classList.add('hidden');
     setTimeout(() => {
       document.getElementById('login-page').style.display = 'none';
+      if (typeof map !== 'undefined') { map.resize(); autoLocate(); }
     }, 600);
     return true;
   }
@@ -58,7 +59,7 @@ function skipLogin() {
   document.getElementById('login-page').classList.add('hidden');
   setTimeout(() => {
     document.getElementById('login-page').style.display = 'none';
-    if (typeof map !== 'undefined') map.invalidateSize();
+    if (typeof map !== 'undefined') { map.resize(); autoLocate(); }
     updateSidebarStats();
   }, 400);
 }
@@ -89,7 +90,8 @@ function handleAuth() {
   document.getElementById('login-page').classList.add('hidden');
   setTimeout(() => {
     document.getElementById('login-page').style.display = 'none';
-    map.invalidateSize();
+    map.resize();
+    autoLocate();
   }, 600);
 }
 
@@ -142,53 +144,143 @@ EMOTIONS.forEach(e => EMOTION_MAP[e.id] = e);
 let entries = JSON.parse(localStorage.getItem('el_entries') || '[]');
 let pendingLatLng = null;
 
-// ---- MAP ----
-const map = L.map('map', { zoomControl: false }).setView([37.8716, -122.2727], 15);
-L.control.zoom({ position: 'topright' }).addTo(map);
-
-// dusk map tiles
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  maxZoom: 19
-}).addTo(map);
-
-map.on('click', function(e) {
-  pendingLatLng = e.latlng;
-  openModal(e.latlng);
+// ---- MAP (MapLibre GL — 3D pitched view, OpenFreeMap tiles) ----
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  center: [-122.2727, 37.8716],
+  zoom: 16,
+  pitch: 60,
+  bearing: -18,
+  antialias: true,
+  attributionControl: { compact: true }
 });
 
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+
+map.on('load', () => {
+  // warm the base palette to match the paper aesthetic
+  const tint = (layerId, prop, value) => {
+    if (map.getLayer(layerId)) {
+      try { map.setPaintProperty(layerId, prop, value); } catch (_) {}
+    }
+  };
+
+  // paper ground
+  tint('background', 'background-color', '#fbf6ed');
+
+  // parks, forest, grass → sage
+  ['park', 'park_outline', 'landcover_wood', 'landcover_grass', 'landuse_residential']
+    .forEach(id => tint(id, 'fill-color', '#cdd9bf'));
+
+  // water → soft mauve-lavender
+  ['water', 'water_name'].forEach(id => tint(id, 'fill-color', '#c8c0dc'));
+
+  // roads → warm ivory
+  const roadIds = ['highway_motorway', 'highway_trunk', 'highway_primary',
+    'highway_secondary', 'highway_tertiary', 'highway_minor', 'highway_path',
+    'road_motorway', 'road_trunk_primary', 'road_secondary_tertiary', 'road_minor',
+    'tunnel_motorway', 'bridge_motorway'];
+  roadIds.forEach(id => {
+    tint(id, 'line-color', '#f3e6cf');
+    tint(id, 'line-opacity', 0.95);
+  });
+
+  // building flat footprints → warm blush, soft opacity under the 3D extrusion
+  ['building', 'building-top'].forEach(id => {
+    tint(id, 'fill-color', '#e8c5c1');
+    tint(id, 'fill-opacity', 0.5);
+  });
+
+  // 3D building extrusion — the Apple Maps style lift
+  const layers = map.getStyle().layers;
+  let firstSymbolId;
+  for (const layer of layers) {
+    if (layer.type === 'symbol') { firstSymbolId = layer.id; break; }
+  }
+  if (!map.getLayer('el-3d-buildings')) {
+    map.addLayer({
+      id: 'el-3d-buildings',
+      source: 'openmaptiles',
+      'source-layer': 'building',
+      type: 'fill-extrusion',
+      minzoom: 14,
+      paint: {
+        'fill-extrusion-color': [
+          'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
+          0, '#f2dcd1',
+          20, '#e8c5c1',
+          60, '#d9a7a0',
+          150, '#c89191'
+        ],
+        'fill-extrusion-height': [
+          'interpolate', ['linear'], ['zoom'],
+          14, 0,
+          15.05, ['coalesce', ['get', 'render_height'], ['get', 'height'], 10]
+        ],
+        'fill-extrusion-base': [
+          'interpolate', ['linear'], ['zoom'],
+          14, 0,
+          15.05, ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0]
+        ],
+        'fill-extrusion-opacity': 0.92,
+        'fill-extrusion-vertical-gradient': true
+      }
+    }, firstSymbolId);
+  }
+
+  // once tiles are styled, drop any existing markers
+  renderMarkers();
+});
+
+map.on('click', function(e) {
+  const latlng = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+  pendingLatLng = latlng;
+  openModal(latlng);
+});
+
+const activeMarkers = [];
+
 function renderMarkers() {
+  // clear any previous markers (e.g. after submitEntry re-calls renderMarkers)
+  while (activeMarkers.length) activeMarkers.pop().remove();
   entries.forEach(entry => addMarker(entry));
 }
 
 function addMarker(entry) {
   const primary = EMOTION_MAP[entry.emotions[0]] || EMOTIONS[0];
   const size = 14 + (entry.intensity * 2.5);
-  const icon = L.divIcon({
-    className: '',
-    html: `<div class="emotion-marker" style="
-      width:${size}px; height:${size}px;
-      background: radial-gradient(circle at 35% 35%, ${primary.color}ee, ${primary.color}88);
-      box-shadow: 0 0 ${size * 0.8}px ${primary.glow}, 0 0 ${size * 0.4}px ${primary.glow};
-    "></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size/2, size/2]
-  });
-  const marker = L.marker([entry.lat, entry.lng], { icon }).addTo(map);
+
+  const el = document.createElement('div');
+  el.className = 'emotion-marker';
+  el.style.cssText = `
+    width:${size}px; height:${size}px;
+    background: radial-gradient(circle at 35% 35%, ${primary.color}ee, ${primary.color}88);
+    box-shadow: 0 0 ${size * 0.8}px ${primary.glow}, 0 0 ${size * 0.4}px ${primary.glow};
+  `;
+
   const emotionTags = entry.emotions.map(id => {
     const em = EMOTION_MAP[id];
     return `<span style="display:inline-block;padding:3px 10px;border-radius:10px;background:${em.color}22;color:${em.color};font-size:11px;font-weight:500;margin:2px;">${em.emoji} ${em.label}</span>`;
   }).join('');
-  marker.bindPopup(`
-    <div style="font-family:'DM Sans',sans-serif;min-width:180px;">
-      <div style="margin-bottom:8px;">${emotionTags}</div>
-      <div style="font-size:11px;color:rgba(45,38,66,0.5);">Intensity ${entry.intensity}/10 &middot; Energy ${entry.energy}/10</div>
-      ${entry.note ? `<div style="font-size:13px;margin-top:10px;line-height:1.6;color:rgba(45,38,66,0.85);">${entry.note}</div>` : ''}
-      <div style="font-size:10px;color:rgba(45,38,66,0.35);margin-top:8px;">${new Date(entry.timestamp).toLocaleString()}</div>
-    </div>
-  `);
+
+  const popup = new maplibregl.Popup({ offset: size / 2 + 8, closeButton: false, className: 'el-popup' })
+    .setHTML(`
+      <div style="font-family: inherit; min-width: 180px;">
+        <div style="margin-bottom:8px;">${emotionTags}</div>
+        <div style="font-size:11px;opacity:0.6;">Intensity ${entry.intensity}/10 &middot; Energy ${entry.energy}/10</div>
+        ${entry.note ? `<div style="font-size:13px;margin-top:10px;line-height:1.6;">${entry.note}</div>` : ''}
+        <div style="font-size:10px;opacity:0.45;margin-top:8px;">${new Date(entry.timestamp).toLocaleString()}</div>
+      </div>
+    `);
+
+  const marker = new maplibregl.Marker({ element: el })
+    .setLngLat([entry.lng, entry.lat])
+    .setPopup(popup)
+    .addTo(map);
+
+  activeMarkers.push(marker);
 }
-renderMarkers();
 
 // ---- DROPPER (drag-and-drop figurine) ----
 (function setupDropper() {
@@ -263,7 +355,8 @@ renderMarkers();
 
     if (isOverMap(clientX, clientY)) {
       const rect = mapEl.getBoundingClientRect();
-      const latlng = map.containerPointToLatLng([clientX - rect.left, clientY - rect.top]);
+      const lngLat = map.unproject([clientX - rect.left, clientY - rect.top]);
+      const latlng = { lat: lngLat.lat, lng: lngLat.lng };
       pendingLatLng = latlng;
       openModal(latlng);
     }
@@ -291,6 +384,47 @@ function openModal(latlng) {
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
   pendingLatLng = null;
+}
+
+// ---- AUTO-LOCATE ----
+let locatePingMarker = null;
+let autoLocateTried = false;
+
+function showMapHint(msg, hideAfter = 3200) {
+  const hint = document.getElementById('map-hint');
+  hint.textContent = msg;
+  hint.style.opacity = '1';
+  clearTimeout(showMapHint._t);
+  if (hideAfter) {
+    showMapHint._t = setTimeout(() => { hint.style.opacity = '0'; }, hideAfter);
+  }
+}
+
+function autoLocate() {
+  if (autoLocateTried) return;
+  autoLocateTried = true;
+
+  if (!navigator.geolocation) return;
+  const insecure = location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+  if (insecure) return;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      map.flyTo({ center: [longitude, latitude], zoom: 17, pitch: 60, bearing: -18, duration: 1600 });
+      if (locatePingMarker) locatePingMarker.remove();
+      const pingEl = document.createElement('div');
+      pingEl.className = 'locate-ping';
+      locatePingMarker = new maplibregl.Marker({ element: pingEl })
+        .setLngLat([longitude, latitude])
+        .addTo(map);
+    },
+    (err) => {
+      if (err.code === err.PERMISSION_DENIED) return;
+      showMapHint('Could not find your location. Showing Berkeley.');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
 }
 
 function buildEmotionPicker() {
@@ -356,7 +490,7 @@ function switchView(name) {
   const navBar = document.getElementById('nav-bar');
   if (navBar) navBar.classList.remove('compact');
 
-  if (name === 'map') { setTimeout(() => map.invalidateSize(), 100); updateMapInfo(); }
+  if (name === 'map') { setTimeout(() => map.resize(), 100); updateMapInfo(); }
   if (name === 'dashboard') renderDashboard();
   if (name === 'journal') renderJournal();
   updateSidebarStats();
