@@ -497,30 +497,8 @@ body::after {
   transition: none;
 }
 
-/* target reticle — soft terracotta halo */
-.drop-reticle {
-  position: absolute;
-  width: 52px;
-  height: 52px;
-  border: 1.5px solid var(--accent);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 499;
-  transform: translate(-50%, -50%);
-  display: none;
-  box-shadow:
-    0 0 0 6px rgba(194, 123, 94, 0.12),
-    0 0 22px var(--accent-glow);
-  animation: ripple 1.6s var(--ease-breath) infinite;
-}
-.drop-reticle::before {
-  content: '';
-  position: absolute;
-  inset: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 14px var(--accent-glow);
-}
+/* drop reticle now rendered as ground-aligned MapLibre layers (see app.js) */
+.drop-reticle { display: none !important; }
 @keyframes ripple {
   0%, 100% { box-shadow: 0 0 0 4px rgba(194, 123, 94, 0.12), 0 0 18px var(--accent-glow); }
   50% { box-shadow: 0 0 0 10px rgba(194, 123, 94, 0.05), 0 0 28px var(--accent-glow); }

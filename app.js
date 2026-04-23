@@ -304,6 +304,45 @@ map.on('load', () => {
     }, firstSymbolId);
   });
 
+  // drop reticle — ground-aligned, only visible while dragging the pin
+  if (!map.getSource('el-reticle')) {
+    map.addSource('el-reticle', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+  }
+  if (!map.getLayer('el-reticle-halo')) {
+    map.addLayer({
+      id: 'el-reticle-halo',
+      type: 'circle',
+      source: 'el-reticle',
+      paint: {
+        'circle-color': 'rgba(194,123,94,0.22)',
+        'circle-pitch-alignment': 'map',
+        'circle-pitch-scale': 'map',
+        'circle-radius': 32,
+        'circle-blur': 0.6,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#c27b5e',
+        'circle-stroke-opacity': 0.85
+      }
+    }, firstSymbolId);
+  }
+  if (!map.getLayer('el-reticle-dot')) {
+    map.addLayer({
+      id: 'el-reticle-dot',
+      type: 'circle',
+      source: 'el-reticle',
+      paint: {
+        'circle-color': '#c27b5e',
+        'circle-pitch-alignment': 'map',
+        'circle-pitch-scale': 'map',
+        'circle-radius': 6,
+        'circle-blur': 0.15
+      }
+    }, firstSymbolId);
+  }
+
   // 3D building extrusion — added AFTER heatmaps so buildings occlude the wash
   if (!map.getLayer('el-3d-buildings')) {
     map.addLayer({
@@ -382,7 +421,11 @@ function addMarker(entry) {
       </div>
     `);
 
-  const marker = new maplibregl.Marker({ element: el })
+  const marker = new maplibregl.Marker({
+    element: el,
+    pitchAlignment: 'map',
+    rotationAlignment: 'map'
+  })
     .setLngLat([entry.lng, entry.lat])
     .setPopup(popup)
     .addTo(map);
@@ -393,9 +436,26 @@ function addMarker(entry) {
 // ---- DROPPER (drag-and-drop figurine) ----
 (function setupDropper() {
   const dropper = document.getElementById('dropper');
-  const reticle = document.getElementById('drop-reticle');
   const mapEl = document.getElementById('map');
   let ghost = null;
+
+  const emptyFC = { type: 'FeatureCollection', features: [] };
+  function setReticleAt(lngLat) {
+    const src = map.getSource('el-reticle');
+    if (!src) return;
+    src.setData({
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] },
+        properties: {}
+      }]
+    });
+  }
+  function clearReticle() {
+    const src = map.getSource('el-reticle');
+    if (src) src.setData(emptyFC);
+  }
 
   function onPointerDown(e) {
     e.preventDefault();
@@ -437,11 +497,10 @@ function addMarker(entry) {
 
     if (isOverMap(clientX, clientY)) {
       const rect = mapEl.getBoundingClientRect();
-      reticle.style.display = 'block';
-      reticle.style.left = (clientX - rect.left) + 'px';
-      reticle.style.top = (clientY - rect.top) + 'px';
+      const lngLat = map.unproject([clientX - rect.left, clientY - rect.top]);
+      setReticleAt(lngLat);
     } else {
-      reticle.style.display = 'none';
+      clearReticle();
     }
   }
 
@@ -456,7 +515,7 @@ function addMarker(entry) {
     document.removeEventListener('touchmove', onPointerMove);
     document.removeEventListener('touchend', onPointerUp);
 
-    reticle.style.display = 'none';
+    clearReticle();
     document.body.classList.remove('is-dragging-dropper');
 
     if (ghost) { ghost.remove(); ghost = null; }
@@ -523,7 +582,11 @@ function autoLocate() {
       if (locatePingMarker) locatePingMarker.remove();
       const pingEl = document.createElement('div');
       pingEl.className = 'locate-ping';
-      locatePingMarker = new maplibregl.Marker({ element: pingEl })
+      locatePingMarker = new maplibregl.Marker({
+        element: pingEl,
+        pitchAlignment: 'map',
+        rotationAlignment: 'map'
+      })
         .setLngLat([longitude, latitude])
         .addTo(map);
     },
