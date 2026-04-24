@@ -301,29 +301,38 @@ function showNearby() {
 
 // ---- JELLYFISH EXPLORER (floating companion, WASD/arrow keys) ----
 const JELLY_SVG = `
-<svg class="jelly-svg" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+<svg class="jelly-svg" viewBox="0 0 140 210" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="jelly-bell-grad" cx="0.38" cy="0.28" r="0.72">
-      <stop offset="0"   stop-color="#fff3f9" stop-opacity="0.98"/>
-      <stop offset="0.45" stop-color="#f0c2de" stop-opacity="0.85"/>
-      <stop offset="1"   stop-color="#a769c6" stop-opacity="0.55"/>
+    <radialGradient id="jelly-bell-grad" cx="0.4" cy="0.28" r="0.78">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.22" stop-color="#ffc4ea" stop-opacity="1"/>
+      <stop offset="0.55" stop-color="#ff6bc0" stop-opacity="0.98"/>
+      <stop offset="1"    stop-color="#7b2aa0" stop-opacity="0.95"/>
     </radialGradient>
-    <radialGradient id="jelly-glow-grad" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0"   stop-color="rgba(240, 180, 220, 0.45)"/>
-      <stop offset="1"   stop-color="rgba(240, 180, 220, 0)"/>
+    <radialGradient id="jelly-glow-grad" cx="0.5" cy="0.38" r="0.55">
+      <stop offset="0"    stop-color="rgba(255, 140, 220, 0.55)"/>
+      <stop offset="0.6"  stop-color="rgba(255, 100, 200, 0.25)"/>
+      <stop offset="1"    stop-color="rgba(255, 100, 200, 0)"/>
     </radialGradient>
   </defs>
-  <ellipse cx="50" cy="44" rx="44" ry="32" fill="url(#jelly-glow-grad)"/>
-  <g class="jelly-tentacles">
-    <path d="M28 60 Q24 82 32 98 Q38 116 32 138" stroke="rgba(200, 135, 184, 0.78)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-    <path d="M40 64 Q37 84 43 100 Q47 118 42 140" stroke="rgba(214, 150, 196, 0.75)" stroke-width="2"   stroke-linecap="round" fill="none"/>
-    <path d="M50 66 Q50 86 52 104 Q54 122 50 142" stroke="rgba(228, 162, 210, 0.82)" stroke-width="2"   stroke-linecap="round" fill="none"/>
-    <path d="M60 64 Q63 84 57 100 Q53 118 58 140" stroke="rgba(214, 150, 196, 0.75)" stroke-width="2"   stroke-linecap="round" fill="none"/>
-    <path d="M72 60 Q76 82 68 98 Q62 116 68 138" stroke="rgba(200, 135, 184, 0.78)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  <!-- glow halo -->
+  <ellipse cx="70" cy="60" rx="70" ry="52" fill="url(#jelly-glow-grad)"/>
+  <!-- tentacles -->
+  <g class="jelly-tentacles" stroke-linecap="round" fill="none">
+    <path d="M34 82 Q26 110 38 138 Q48 164 38 198" stroke="#d94aab" stroke-width="4"   opacity="0.95"/>
+    <path d="M52 90 Q48 116 56 144 Q62 172 54 202" stroke="#f07dc8" stroke-width="3.5" opacity="0.95"/>
+    <path d="M70 92 Q70 120 72 150 Q74 178 70 206" stroke="#ffb0dd" stroke-width="3.5" opacity="1"/>
+    <path d="M88 90 Q92 116 84 144 Q78 172 86 202" stroke="#f07dc8" stroke-width="3.5" opacity="0.95"/>
+    <path d="M106 82 Q114 110 102 138 Q92 164 102 198" stroke="#d94aab" stroke-width="4" opacity="0.95"/>
   </g>
-  <ellipse cx="50" cy="44" rx="32" ry="24" fill="url(#jelly-bell-grad)" stroke="rgba(255, 220, 240, 0.55)" stroke-width="1.2"/>
-  <ellipse cx="42" cy="36" rx="11" ry="6" fill="rgba(255, 255, 255, 0.55)"/>
-  <ellipse cx="58" cy="38" rx="4" ry="2" fill="rgba(255, 255, 255, 0.4)"/>
+  <!-- bell -->
+  <ellipse cx="70" cy="58" rx="46" ry="34" fill="url(#jelly-bell-grad)" stroke="#ffdaf0" stroke-width="2.2"/>
+  <!-- bell highlights -->
+  <ellipse cx="56" cy="46" rx="17" ry="9"  fill="rgba(255,255,255,0.82)"/>
+  <ellipse cx="82" cy="50" rx="6"  ry="3"  fill="rgba(255,255,255,0.55)"/>
+  <!-- tiny sparkle -->
+  <circle cx="50"  cy="42" r="2" fill="#ffffff"/>
+  <circle cx="92"  cy="64" r="1.4" fill="#ffffff" opacity="0.7"/>
 </svg>`;
 
 let jellyfishMarker = null;
@@ -362,11 +371,25 @@ function spawnJellyfish() {
       type: 'circle',
       source: 'el-jelly-shadow',
       paint: {
-        'circle-color': 'rgba(40, 20, 50, 0.32)',
+        'circle-color': '#d94aab',
         'circle-pitch-alignment': 'map',
         'circle-pitch-scale': 'map',
-        'circle-radius': 16,
-        'circle-blur': 1
+        'circle-radius': 26,
+        'circle-blur': 1,
+        'circle-opacity': 0.55
+      }
+    });
+    // inner darker core so it reads as a ground anchor
+    map.addLayer({
+      id: 'el-jelly-shadow-core',
+      type: 'circle',
+      source: 'el-jelly-shadow',
+      paint: {
+        'circle-color': 'rgba(40, 10, 60, 0.45)',
+        'circle-pitch-alignment': 'map',
+        'circle-pitch-scale': 'map',
+        'circle-radius': 10,
+        'circle-blur': 0.6
       }
     });
   }

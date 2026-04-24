@@ -488,11 +488,14 @@ body::after {
 
 /* ---- JELLYFISH EXPLORER ---- */
 .jellyfish-marker {
-  width: 78px;
-  height: 118px;
+  width: 140px;
+  height: 210px;
   pointer-events: none;
   animation: jellyBob 3.6s var(--ease-breath) infinite;
-  filter: drop-shadow(0 8px 14px rgba(120, 60, 140, 0.28));
+  filter:
+    drop-shadow(0 0 22px rgba(255, 100, 200, 0.55))
+    drop-shadow(0 0 48px rgba(255, 70, 180, 0.28))
+    drop-shadow(0 14px 20px rgba(120, 30, 140, 0.45));
 }
 .jellyfish-marker .jelly-svg {
   width: 100%;
