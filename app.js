@@ -299,6 +299,162 @@ function showNearby() {
   map.flyTo({ center: [last.lng, last.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
 }
 
+// ---- JELLYFISH EXPLORER (floating companion, WASD/arrow keys) ----
+const JELLY_SVG = `
+<svg class="jelly-svg" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="jelly-bell-grad" cx="0.38" cy="0.28" r="0.72">
+      <stop offset="0"   stop-color="#fff3f9" stop-opacity="0.98"/>
+      <stop offset="0.45" stop-color="#f0c2de" stop-opacity="0.85"/>
+      <stop offset="1"   stop-color="#a769c6" stop-opacity="0.55"/>
+    </radialGradient>
+    <radialGradient id="jelly-glow-grad" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="rgba(240, 180, 220, 0.45)"/>
+      <stop offset="1"   stop-color="rgba(240, 180, 220, 0)"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="50" cy="44" rx="44" ry="32" fill="url(#jelly-glow-grad)"/>
+  <g class="jelly-tentacles">
+    <path d="M28 60 Q24 82 32 98 Q38 116 32 138" stroke="rgba(200, 135, 184, 0.78)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M40 64 Q37 84 43 100 Q47 118 42 140" stroke="rgba(214, 150, 196, 0.75)" stroke-width="2"   stroke-linecap="round" fill="none"/>
+    <path d="M50 66 Q50 86 52 104 Q54 122 50 142" stroke="rgba(228, 162, 210, 0.82)" stroke-width="2"   stroke-linecap="round" fill="none"/>
+    <path d="M60 64 Q63 84 57 100 Q53 118 58 140" stroke="rgba(214, 150, 196, 0.75)" stroke-width="2"   stroke-linecap="round" fill="none"/>
+    <path d="M72 60 Q76 82 68 98 Q62 116 68 138" stroke="rgba(200, 135, 184, 0.78)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  </g>
+  <ellipse cx="50" cy="44" rx="32" ry="24" fill="url(#jelly-bell-grad)" stroke="rgba(255, 220, 240, 0.55)" stroke-width="1.2"/>
+  <ellipse cx="42" cy="36" rx="11" ry="6" fill="rgba(255, 255, 255, 0.55)"/>
+  <ellipse cx="58" cy="38" rx="4" ry="2" fill="rgba(255, 255, 255, 0.4)"/>
+</svg>`;
+
+let jellyfishMarker = null;
+let jellyfishShadowLngLat = null;
+const jellyKeys = new Set();
+let jellyVel = { x: 0, y: 0 };  // in lng/lat deg per frame (camera-local)
+const JELLY_FRICTION = 0.86;
+let _jellyRaf = null;
+
+function spawnJellyfish() {
+  if (jellyfishMarker || typeof map === 'undefined') return;
+  const center = map.getCenter();
+  jellyfishShadowLngLat = { lng: center.lng, lat: center.lat };
+
+  const el = document.createElement('div');
+  el.className = 'jellyfish-marker';
+  el.innerHTML = JELLY_SVG;
+
+  jellyfishMarker = new maplibregl.Marker({
+    element: el,
+    pitchAlignment: 'viewport',
+    rotationAlignment: 'viewport',
+    anchor: 'bottom'
+  })
+    .setLngLat([jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat])
+    .addTo(map);
+
+  // soft ground shadow under the jellyfish (ground-aligned, moves with it)
+  if (!map.getSource('el-jelly-shadow')) {
+    map.addSource('el-jelly-shadow', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+    map.addLayer({
+      id: 'el-jelly-shadow',
+      type: 'circle',
+      source: 'el-jelly-shadow',
+      paint: {
+        'circle-color': 'rgba(40, 20, 50, 0.32)',
+        'circle-pitch-alignment': 'map',
+        'circle-pitch-scale': 'map',
+        'circle-radius': 16,
+        'circle-blur': 1
+      }
+    });
+  }
+  updateJellyShadow();
+  showJellyHint();
+  if (_jellyRaf) cancelAnimationFrame(_jellyRaf);
+  _jellyRaf = requestAnimationFrame(jellyLoop);
+}
+
+function updateJellyShadow() {
+  const src = map && map.getSource && map.getSource('el-jelly-shadow');
+  if (!src || !jellyfishShadowLngLat) return;
+  src.setData({
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat] },
+      properties: {}
+    }]
+  });
+}
+
+function showJellyHint() {
+  const hint = document.getElementById('jelly-hint');
+  if (!hint) return;
+  hint.classList.add('visible');
+  clearTimeout(showJellyHint._t);
+  showJellyHint._t = setTimeout(() => hint.classList.remove('visible'), 6000);
+}
+
+function jellyLoop() {
+  if (!jellyfishMarker) return;
+  let ax = 0, ay = 0;
+  if (jellyKeys.has('w') || jellyKeys.has('arrowup'))    ay += 1;
+  if (jellyKeys.has('s') || jellyKeys.has('arrowdown'))  ay -= 1;
+  if (jellyKeys.has('a') || jellyKeys.has('arrowleft'))  ax -= 1;
+  if (jellyKeys.has('d') || jellyKeys.has('arrowright')) ax += 1;
+
+  const mag = Math.hypot(ax, ay);
+  if (mag > 0) { ax /= mag; ay /= mag; }
+
+  const zoom = map.getZoom();
+  // thrust scales with zoom so movement feels consistent whether zoomed in or out
+  const thrust = 0.0000009 * Math.pow(2, 20 - zoom);
+
+  jellyVel.x = jellyVel.x * JELLY_FRICTION + ax * thrust * (1 - JELLY_FRICTION);
+  jellyVel.y = jellyVel.y * JELLY_FRICTION + ay * thrust * (1 - JELLY_FRICTION);
+
+  if (Math.abs(jellyVel.x) + Math.abs(jellyVel.y) > 1e-12) {
+    // rotate input by camera bearing so "up" == toward horizon
+    const bearingRad = -map.getBearing() * Math.PI / 180;
+    const cs = Math.cos(bearingRad), sn = Math.sin(bearingRad);
+    const dLng = jellyVel.x * cs - jellyVel.y * sn;
+    const dLat = jellyVel.x * sn + jellyVel.y * cs;
+    jellyfishShadowLngLat.lng += dLng;
+    jellyfishShadowLngLat.lat += dLat;
+    jellyfishMarker.setLngLat([jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat]);
+    updateJellyShadow();
+
+    // follow camera when actively steering
+    if (mag > 0) {
+      map.easeTo({
+        center: [jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat],
+        duration: 120,
+        easing: (t) => t
+      });
+    }
+  }
+
+  _jellyRaf = requestAnimationFrame(jellyLoop);
+}
+
+window.addEventListener('keydown', e => {
+  if (!jellyfishMarker) return;
+  const tag = document.activeElement && document.activeElement.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  if (document.getElementById('modal-overlay')?.classList.contains('active')) return;
+  if (document.getElementById('affect-overlay')?.classList.contains('active')) return;
+  const k = e.key.toLowerCase();
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(k)) {
+    jellyKeys.add(k);
+    e.preventDefault();
+  }
+});
+window.addEventListener('keyup', e => {
+  jellyKeys.delete(e.key.toLowerCase());
+});
+
 // ---- WORLD CHAT / LIVE FEED ----
 function findPlaceName(lng, lat) {
   if (!map || !map.loaded || !map.loaded()) return null;
@@ -594,6 +750,7 @@ map.on('load', () => {
   refreshFeelingsSource();
   renderWorldChat();
   if (affectState) applyAffect(affectState);
+  spawnJellyfish();
 });
 
 map.on('click', function(e) {

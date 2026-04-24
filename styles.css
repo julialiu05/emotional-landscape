@@ -486,6 +486,84 @@ body::after {
 .gps-toggle.on .gps-knob { background: var(--accent); transform: translateX(2px); }
 .gps-toggle:hover { background: #2d1e1a; }
 
+/* ---- JELLYFISH EXPLORER ---- */
+.jellyfish-marker {
+  width: 78px;
+  height: 118px;
+  pointer-events: none;
+  animation: jellyBob 3.6s var(--ease-breath) infinite;
+  filter: drop-shadow(0 8px 14px rgba(120, 60, 140, 0.28));
+}
+.jellyfish-marker .jelly-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  animation: jellyPulse 2.9s ease-in-out infinite;
+  transform-origin: 50% 30%;
+}
+.jellyfish-marker .jelly-tentacles {
+  transform-origin: 50% 28%;
+  animation: jellySway 3.4s ease-in-out infinite;
+}
+@keyframes jellyBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+@keyframes jellyPulse {
+  0%, 100% { transform: scale(1, 1); }
+  35%      { transform: scale(1.06, 0.94); }
+  55%      { transform: scale(0.97, 1.02); }
+}
+@keyframes jellySway {
+  0%, 100% { transform: translateX(0) skewX(0deg); }
+  50%      { transform: translateX(3px) skewX(-2deg); }
+}
+
+/* jellyfish control hint */
+.jelly-hint {
+  position: absolute;
+  bottom: calc(var(--tabbar-h) + 130px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper-0);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 32px -12px rgba(0, 0, 0, 0.45);
+  z-index: 500;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  transition: opacity 0.5s var(--ease-soft), transform 0.5s var(--ease-soft);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.jelly-hint.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.jelly-hint .keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 3px 6px;
+  background: rgba(246, 234, 211, 0.12);
+  border: 1px solid rgba(246, 234, 211, 0.22);
+  border-radius: 5px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.jelly-hint-text { margin-left: 4px; color: rgba(246, 234, 211, 0.72); }
+
 /* ---- WORLD CHAT / LIVE FEED (top-right, below nav) ---- */
 .world-chat {
   position: absolute;
