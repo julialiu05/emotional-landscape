@@ -341,6 +341,8 @@ const jellyKeys = new Set();
 let jellyVel = { x: 0, y: 0 };  // in lng/lat deg per frame (camera-local)
 const JELLY_FRICTION = 0.86;
 let _jellyRaf = null;
+let _jellySteered = false;
+let _jellySelfMove = false;  // true while our own setCenter is animating
 
 function spawnJellyfish() {
   if (jellyfishMarker || typeof map === 'undefined') return;
@@ -395,8 +397,23 @@ function spawnJellyfish() {
   }
   updateJellyShadow();
   showJellyHint();
+
+  // until the user has taken the wheel, the jelly re-snaps to camera center
+  // whenever the camera settles (autoLocate, manual pan, etc.)
+  map.on('moveend', syncJellyToCameraIfIdle);
+
   if (_jellyRaf) cancelAnimationFrame(_jellyRaf);
   _jellyRaf = requestAnimationFrame(jellyLoop);
+}
+
+function syncJellyToCameraIfIdle() {
+  if (!jellyfishMarker) return;
+  if (_jellySteered) return;         // user has grabbed control
+  if (_jellySelfMove) return;        // we caused this movement
+  const c = map.getCenter();
+  jellyfishShadowLngLat = { lng: c.lng, lat: c.lat };
+  jellyfishMarker.setLngLat([c.lng, c.lat]);
+  updateJellyShadow();
 }
 
 function updateJellyShadow() {
@@ -449,13 +466,14 @@ function jellyLoop() {
     jellyfishMarker.setLngLat([jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat]);
     updateJellyShadow();
 
-    // follow camera when actively steering
+    // follow camera when actively steering — setCenter is synchronous,
+    // so the jelly stays pinned to the screen's center instead of sliding
+    // off-axis with each stutter of easeTo
     if (mag > 0) {
-      map.easeTo({
-        center: [jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat],
-        duration: 120,
-        easing: (t) => t
-      });
+      _jellySteered = true;
+      _jellySelfMove = true;
+      map.setCenter([jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat]);
+      _jellySelfMove = false;
     }
   }
 
