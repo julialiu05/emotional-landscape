@@ -493,12 +493,8 @@ function buildJellyfish3DLayer() {
       // 1 unit in Three.js = 1 meter; the model is already pre-scaled to meters in onAdd
       const meterScale = merc.meterInMercatorCoordinateUnits();
 
-      // GLB axis convention varies by export. Possible values:
-      //   Math.PI / 2  : Y-up GLB (most common)
-      //   0            : Z-up GLB (Blender exports often)
-      //   Math.PI      : flipped 180°
-      //  -Math.PI / 2  : -Y-up
-      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), 0);
+      // This GLB exports bell-down (bell along -Z), so flip 180° on X to put bell up.
+      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
