@@ -493,8 +493,8 @@ function buildJellyfish3DLayer() {
       // 1 unit in Three.js = 1 meter; the model is already pre-scaled to meters in onAdd
       const meterScale = merc.meterInMercatorCoordinateUnits();
 
-      // GLB is Y-up; rotate 90° around X to stand upright in MapLibre's Z-up world
-      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+      // stand the jellyfish upright (bell up, tentacles down) in MapLibre's Z-up world
+      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
