@@ -301,8 +301,8 @@ function showNearby() {
 
 // ---- JELLYFISH EXPLORER (3D GLB model rendered via Three.js custom layer) ----
 const JELLY_GLB_URL = 'cute_pastel_jellyfish.glb';
-const JELLY_ALTITUDE_M = 14;     // meters above the ground plane
-const JELLY_MODEL_SCALE = 6;     // meters tall (tune to taste)
+const JELLY_ALTITUDE_M = 22;     // meters above the ground plane
+const JELLY_MODEL_SCALE = 18;    // model fits inside this cube (meters)
 
 // kept for backward-compat with old code paths; the 3D layer is the real renderer now
 const JELLY_SVG = `
@@ -432,16 +432,16 @@ function buildJellyfish3DLayer() {
       this.camera = new THREE.Camera();
       this.scene = new THREE.Scene();
 
-      // soft, even lighting — the jelly is pastel + translucent so we don't want harsh shadows
-      this.scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-      const key = new THREE.DirectionalLight(0xffffff, 0.55);
-      key.position.set(50, 80, 100).normalize();
+      // bright, even illumination so pastel surfaces read on a sunlit map
+      this.scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+      this.scene.add(new THREE.HemisphereLight(0xfff4e6, 0xb8a6dc, 0.55));
+      const key = new THREE.DirectionalLight(0xffffff, 0.7);
+      key.position.set(60, 100, 120);
       this.scene.add(key);
-      const fill = new THREE.DirectionalLight(0xffd5ee, 0.35);
-      fill.position.set(-60, 40, 80).normalize();
-      this.scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffd0ee, 0.5);
+      rim.position.set(-80, 40, 90);
+      this.scene.add(rim);
 
-      // Three.js renders into MapLibre's existing GL context
       this.renderer = new THREE.WebGLRenderer({
         canvas: map.getCanvas(),
         context: gl,
@@ -450,26 +450,28 @@ function buildJellyfish3DLayer() {
       this.renderer.autoClear = false;
       this.clock = new THREE.Clock();
 
-      // load model
       const loader = new THREE.GLTFLoader();
       loader.load(
         JELLY_GLB_URL,
         (gltf) => {
-          this.model = gltf.scene;
+          const model = gltf.scene;
 
-          // tweak any translucent materials to read on a bright map
-          this.model.traverse((node) => {
-            if (node.isMesh && node.material) {
-              const m = node.material;
-              if ('transparent' in m) m.transparent = true;
-              if ('depthWrite' in m) m.depthWrite = false;
-            }
-          });
+          // Normalize: re-center to origin and scale so the longest axis = JELLY_MODEL_SCALE meters
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          const longest = Math.max(size.x, size.y, size.z) || 1;
+          const norm = JELLY_MODEL_SCALE / longest;
 
-          this.scene.add(this.model);
+          // pivot the model on its bottom-center so altitude is measured from the tentacles
+          model.position.set(-center.x * norm, -box.min.y * norm, -center.z * norm);
+          model.scale.setScalar(norm);
+
+          this.model = model;
+          this.scene.add(model);
 
           if (gltf.animations && gltf.animations.length) {
-            this.mixer = new THREE.AnimationMixer(this.model);
+            this.mixer = new THREE.AnimationMixer(model);
             gltf.animations.forEach(c => this.mixer.clipAction(c).play());
           }
         },
@@ -481,27 +483,24 @@ function buildJellyfish3DLayer() {
     render: function (gl, matrix) {
       if (!this.model || !jellyfishShadowLngLat) return;
 
-      // gentle ambient bob in addition to any baked animation
       const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) * 0.001;
-      const altitude = JELLY_ALTITUDE_M + Math.sin(t * 0.9) * 1.4;
+      const altitude = JELLY_ALTITUDE_M + Math.sin(t * 0.9) * 2.0;
 
       const merc = maplibregl.MercatorCoordinate.fromLngLat(
         [jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat],
         altitude
       );
-      const scale = merc.meterInMercatorCoordinateUnits() * JELLY_MODEL_SCALE;
+      // 1 unit in Three.js = 1 meter; the model is already pre-scaled to meters in onAdd
+      const meterScale = merc.meterInMercatorCoordinateUnits();
 
-      // GLB is Y-up; rotate 90° around X so it stands upright in MapLibre's Z-up world.
+      // GLB is Y-up; rotate 90° around X to stand upright in MapLibre's Z-up world
       const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-      // slow Y-axis spin so it's visibly alive
-      const rotY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), t * 0.25);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
         .makeTranslation(merc.x, merc.y, merc.z)
-        .scale(new THREE.Vector3(scale, -scale, scale))
-        .multiply(rotX)
-        .multiply(rotY);
+        .scale(new THREE.Vector3(meterScale, -meterScale, meterScale))
+        .multiply(rotX);
 
       this.camera.projectionMatrix = m.multiply(l);
       this.renderer.resetState();
