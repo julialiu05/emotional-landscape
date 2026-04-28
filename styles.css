@@ -310,32 +310,32 @@ body::after {
   background-color: var(--surface-strong) !important;
 }
 
-/* floating cream info panel */
+/* compact activity card — top-left, out of the FAB stack */
 .map-info-panel {
   position: absolute;
-  bottom: calc(var(--tabbar-h) + 28px);
-  right: 24px;
-  width: 300px;
+  top: calc(var(--navbar-h) + 28px);
+  left: 24px;
+  width: 232px;
   background: var(--surface-strong);
-  -webkit-backdrop-filter: blur(28px) saturate(120%);
-  backdrop-filter: blur(28px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  backdrop-filter: blur(24px) saturate(120%);
   border: 1px solid var(--hairline);
-  border-radius: 22px;
-  padding: 22px 24px 20px;
+  border-radius: 16px;
+  padding: 12px 14px;
   z-index: 500;
-  box-shadow: var(--halo-lg);
+  box-shadow: var(--halo-sm);
   color: var(--ink);
 }
 .map-info-title {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   color: var(--muted);
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  letter-spacing: 0.16em;
+  gap: 8px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 .map-info-title .led {
@@ -345,11 +345,45 @@ body::after {
   box-shadow: 0 0 8px var(--accent-glow);
   animation: pulse 4.5s var(--ease-breath) infinite;
 }
+.map-info-stats {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.map-info-stat {
+  flex: 1;
+  text-align: center;
+  padding: 8px 4px 6px;
+  background: var(--paper-1);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.map-info-stat .v {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.map-info-stat .k {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* legacy row variant (used by journal aside, kept compatible) */
 .map-info-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: 9px 0;
+  padding: 8px 0;
 }
 .map-info-row + .map-info-row { border-top: 1px solid var(--hairline); }
 .map-info-row .k {
@@ -362,18 +396,19 @@ body::after {
   font-family: var(--font-serif);
   font-weight: 400;
   color: var(--ink);
-  font-size: 26px;
-  letter-spacing: -0.015em;
+  font-size: 22px;
+  letter-spacing: -0.01em;
 }
+
 .map-info-mood {
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--hairline);
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink-soft);
-  line-height: 1.5;
+  line-height: 1.45;
   letter-spacing: -0.005em;
 }
 .map-info-mood strong {
@@ -381,7 +416,11 @@ body::after {
   font-weight: 500;
   font-style: normal;
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .map-info-panel { width: calc(100vw - 48px); max-width: 280px; }
 }
 
 /* map hint — ink pill */
@@ -704,41 +743,52 @@ body::after {
 /* ---- JELLYFISH CHAT (bottom-right glass panel) ---- */
 .jelly-chat {
   position: absolute;
-  bottom: calc(var(--tabbar-h) + 130px);
+  bottom: calc(var(--tabbar-h) + 48px + 80px);  /* sits 80px (FAB + gap) above NEARBY */
   right: 24px;
   z-index: 600;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: flex-end;
-  gap: 10px;
+  gap: 14px;
   pointer-events: none;
 }
 .jelly-chat > * { pointer-events: auto; }
 
+/* small circle FAB matching NEARBY */
 .jelly-chat-toggle {
+  width: 64px; height: 64px;
+  border-radius: 50%;
   background: var(--ink);
   color: var(--paper-0);
   border: none;
-  border-radius: 999px;
-  padding: 8px 14px 8px 12px;
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
+  justify-content: center;
+  gap: 4px;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 8px 22px -10px rgba(0,0,0,0.35);
-  transition: background 0.2s var(--ease-soft);
+  box-shadow: 0 10px 32px -12px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s var(--ease-soft), box-shadow 0.3s var(--ease-soft);
 }
-.jelly-chat-toggle:hover { background: #2d1e1a; }
+.jelly-chat-toggle:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 36px -10px rgba(0, 0, 0, 0.55);
+}
+.jelly-chat-toggle:active { transform: scale(0.96); }
 .jelly-chat-toggle-dot {
-  width: 8px; height: 8px;
+  width: 12px; height: 12px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ffc4ea, #ff6bc0);
-  box-shadow: 0 0 10px rgba(255, 110, 200, 0.6);
+  box-shadow: 0 0 12px rgba(255, 110, 200, 0.7);
   animation: jellyDotPulse 2.6s var(--ease-breath) infinite;
+}
+.jelly-chat-toggle-label {
+  display: block;
 }
 @keyframes jellyDotPulse {
   0%, 100% { transform: scale(1); opacity: 1; }
