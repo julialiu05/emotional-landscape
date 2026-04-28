@@ -299,7 +299,12 @@ function showNearby() {
   map.flyTo({ center: [last.lng, last.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
 }
 
-// ---- JELLYFISH EXPLORER (floating companion, WASD/arrow keys) ----
+// ---- JELLYFISH EXPLORER (3D GLB model rendered via Three.js custom layer) ----
+const JELLY_GLB_URL = 'cute_pastel_jellyfish.glb';
+const JELLY_ALTITUDE_M = 14;     // meters above the ground plane
+const JELLY_MODEL_SCALE = 6;     // meters tall (tune to taste)
+
+// kept for backward-compat with old code paths; the 3D layer is the real renderer now
 const JELLY_SVG = `
 <svg class="jelly-svg" viewBox="0 0 140 210" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -349,18 +354,16 @@ function spawnJellyfish() {
   const center = map.getCenter();
   jellyfishShadowLngLat = { lng: center.lng, lat: center.lat };
 
-  const el = document.createElement('div');
-  el.className = 'jellyfish-marker';
-  el.innerHTML = JELLY_SVG;
-
-  jellyfishMarker = new maplibregl.Marker({
-    element: el,
-    pitchAlignment: 'viewport',
-    rotationAlignment: 'viewport',
-    anchor: 'bottom'
-  })
-    .setLngLat([jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat])
-    .addTo(map);
+  // -- 3D model layer (Three.js renders into MapLibre's gl context) --
+  if (typeof THREE === 'undefined') {
+    console.warn('three.js not loaded; jellyfish unavailable');
+    return;
+  }
+  if (!map.getLayer('el-jelly-3d')) {
+    map.addLayer(buildJellyfish3DLayer());
+  }
+  // a sentinel so the rest of the app knows the jellyfish exists
+  jellyfishMarker = { _isThreeJsBacked: true };
 
   // soft ground shadow under the jellyfish (ground-aligned, moves with it)
   if (!map.getSource('el-jelly-shadow')) {
@@ -412,8 +415,103 @@ function syncJellyToCameraIfIdle() {
   if (_jellySelfMove) return;        // we caused this movement
   const c = map.getCenter();
   jellyfishShadowLngLat = { lng: c.lng, lat: c.lat };
-  jellyfishMarker.setLngLat([c.lng, c.lat]);
   updateJellyShadow();
+  // 3D jelly reads jellyfishShadowLngLat each frame, so just nudge a repaint
+  if (map.triggerRepaint) map.triggerRepaint();
+}
+
+// MapLibre custom layer that renders the GLB via Three.js
+function buildJellyfish3DLayer() {
+  return {
+    id: 'el-jelly-3d',
+    type: 'custom',
+    renderingMode: '3d',
+
+    onAdd: function (map, gl) {
+      this.map = map;
+      this.camera = new THREE.Camera();
+      this.scene = new THREE.Scene();
+
+      // soft, even lighting — the jelly is pastel + translucent so we don't want harsh shadows
+      this.scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+      const key = new THREE.DirectionalLight(0xffffff, 0.55);
+      key.position.set(50, 80, 100).normalize();
+      this.scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffd5ee, 0.35);
+      fill.position.set(-60, 40, 80).normalize();
+      this.scene.add(fill);
+
+      // Three.js renders into MapLibre's existing GL context
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: map.getCanvas(),
+        context: gl,
+        antialias: true
+      });
+      this.renderer.autoClear = false;
+      this.clock = new THREE.Clock();
+
+      // load model
+      const loader = new THREE.GLTFLoader();
+      loader.load(
+        JELLY_GLB_URL,
+        (gltf) => {
+          this.model = gltf.scene;
+
+          // tweak any translucent materials to read on a bright map
+          this.model.traverse((node) => {
+            if (node.isMesh && node.material) {
+              const m = node.material;
+              if ('transparent' in m) m.transparent = true;
+              if ('depthWrite' in m) m.depthWrite = false;
+            }
+          });
+
+          this.scene.add(this.model);
+
+          if (gltf.animations && gltf.animations.length) {
+            this.mixer = new THREE.AnimationMixer(this.model);
+            gltf.animations.forEach(c => this.mixer.clipAction(c).play());
+          }
+        },
+        undefined,
+        (err) => console.error('jellyfish glb load failed', err)
+      );
+    },
+
+    render: function (gl, matrix) {
+      if (!this.model || !jellyfishShadowLngLat) return;
+
+      // gentle ambient bob in addition to any baked animation
+      const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) * 0.001;
+      const altitude = JELLY_ALTITUDE_M + Math.sin(t * 0.9) * 1.4;
+
+      const merc = maplibregl.MercatorCoordinate.fromLngLat(
+        [jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat],
+        altitude
+      );
+      const scale = merc.meterInMercatorCoordinateUnits() * JELLY_MODEL_SCALE;
+
+      // GLB is Y-up; rotate 90° around X so it stands upright in MapLibre's Z-up world.
+      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+      // slow Y-axis spin so it's visibly alive
+      const rotY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), t * 0.25);
+
+      const m = new THREE.Matrix4().fromArray(matrix);
+      const l = new THREE.Matrix4()
+        .makeTranslation(merc.x, merc.y, merc.z)
+        .scale(new THREE.Vector3(scale, -scale, scale))
+        .multiply(rotX)
+        .multiply(rotY);
+
+      this.camera.projectionMatrix = m.multiply(l);
+      this.renderer.resetState();
+
+      if (this.mixer) this.mixer.update(this.clock.getDelta());
+
+      this.renderer.render(this.scene, this.camera);
+      this.map.triggerRepaint();
+    }
+  };
 }
 
 function updateJellyShadow() {
@@ -463,8 +561,8 @@ function jellyLoop() {
     const dLat = jellyVel.x * sn + jellyVel.y * cs;
     jellyfishShadowLngLat.lng += dLng;
     jellyfishShadowLngLat.lat += dLat;
-    jellyfishMarker.setLngLat([jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat]);
     updateJellyShadow();
+    if (map.triggerRepaint) map.triggerRepaint();
 
     // follow camera when actively steering — setCenter is synchronous,
     // so the jelly stays pinned to the screen's center instead of sliding
