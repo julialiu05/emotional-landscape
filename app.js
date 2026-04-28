@@ -376,7 +376,7 @@ function spawnJellyfish() {
       type: 'circle',
       source: 'el-jelly-shadow',
       paint: {
-        'circle-color': '#d94aab',
+        'circle-color': '#7eb6ff',
         'circle-pitch-alignment': 'map',
         'circle-pitch-scale': 'map',
         'circle-radius': 26,
@@ -390,7 +390,7 @@ function spawnJellyfish() {
       type: 'circle',
       source: 'el-jelly-shadow',
       paint: {
-        'circle-color': 'rgba(40, 10, 60, 0.45)',
+        'circle-color': 'rgba(20, 40, 95, 0.5)',
         'circle-pitch-alignment': 'map',
         'circle-pitch-scale': 'map',
         'circle-radius': 10,
@@ -494,7 +494,7 @@ function buildJellyfish3DLayer() {
       const meterScale = merc.meterInMercatorCoordinateUnits();
 
       // stand the jellyfish upright (bell up, tentacles down) in MapLibre's Z-up world
-      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
