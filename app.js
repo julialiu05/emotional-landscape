@@ -299,6 +299,104 @@ function showNearby() {
   map.flyTo({ center: [last.lng, last.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
 }
 
+// ---- JELLYFISH CHAT (RAG via /api/jelly serverless function) ----
+let _jellyChatBusy = false;
+
+function buildJellyContext(extra = {}) {
+  const recent = entries.slice(-6).map(e => ({
+    emotion: (e.emotions || [])[0],
+    intensity: e.intensity,
+    place: e.placeName || `${e.lat.toFixed(3)}, ${e.lng.toFixed(3)}`,
+    note: e.note,
+    timestamp: e.timestamp
+  }));
+  const last = recent[recent.length - 1];
+  return {
+    recentEntries: recent,
+    affect: affectState,
+    lastEmotion: last && last.emotion,
+    placeNow: extra.placeNow || (last && last.place) || null,
+    ...extra
+  };
+}
+
+async function askJelly(message, contextExtras) {
+  if (_jellyChatBusy) return;
+  _jellyChatBusy = true;
+  appendJellyChat({ who: 'you', text: message === '[just_logged]' || message === '[idle_check]' ? null : message });
+  appendJellyChat({ who: 'jelly', loading: true });
+  try {
+    const res = await fetch('/api/jelly', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, context: buildJellyContext(contextExtras || {}) })
+    });
+    if (!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    replaceLoadingJellyMessage(data.reply || '...');
+    openJellyChat();  // make sure it's visible
+  } catch (e) {
+    replaceLoadingJellyMessage('mm, the current pulled me away. try again?');
+  } finally {
+    _jellyChatBusy = false;
+  }
+}
+
+function appendJellyChat({ who, text, loading }) {
+  const log = document.getElementById('jelly-chat-log');
+  if (!log) return;
+  if (text === null) return;  // skip rendering empty user-side trigger messages
+  const div = document.createElement('div');
+  div.className = `jelly-msg ${who}` + (loading ? ' loading' : '');
+  if (loading) {
+    div.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+  } else {
+    div.textContent = text;
+  }
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function replaceLoadingJellyMessage(text) {
+  const log = document.getElementById('jelly-chat-log');
+  if (!log) return;
+  const loading = log.querySelector('.jelly-msg.loading');
+  if (loading) {
+    loading.classList.remove('loading');
+    loading.innerHTML = '';
+    loading.textContent = text;
+  } else {
+    appendJellyChat({ who: 'jelly', text });
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+function openJellyChat() {
+  const wrap = document.getElementById('jelly-chat');
+  if (wrap) wrap.classList.add('open');
+}
+function closeJellyChat() {
+  const wrap = document.getElementById('jelly-chat');
+  if (wrap) wrap.classList.remove('open');
+}
+function toggleJellyChat() {
+  const wrap = document.getElementById('jelly-chat');
+  if (!wrap) return;
+  wrap.classList.toggle('open');
+  if (wrap.classList.contains('open')) {
+    setTimeout(() => document.getElementById('jelly-chat-input')?.focus(), 100);
+  }
+}
+
+function sendToJelly() {
+  const input = document.getElementById('jelly-chat-input');
+  if (!input) return;
+  const txt = input.value.trim();
+  if (!txt) return;
+  input.value = '';
+  askJelly(txt);
+}
+
 // ---- JELLYFISH EXPLORER (3D GLB model rendered via Three.js custom layer) ----
 const JELLY_GLB_URL = 'cute_pastel_jellyfish.glb';
 const JELLY_ALTITUDE_M = 22;     // meters above the ground plane
@@ -1242,6 +1340,8 @@ function submitEntry() {
   renderWorldChat();
   if (document.getElementById('chat-list')) renderChat();
   closeModal();
+  // jelly proactively reacts to the just-logged feeling
+  setTimeout(() => askJelly('[just_logged]', { placeNow: entry.placeName || null }), 800);
   document.getElementById('map-hint').style.opacity = '0';
   updateSidebarStats();
   updateMapInfo();

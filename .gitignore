@@ -1,0 +1,16 @@
+# env / secrets — never commit these
+.env
+.env.local
+.env.*.local
+*.env
+
+# vercel
+.vercel
+
+# node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# misc
+.DS_Store

@@ -164,6 +164,25 @@
     <span>NEARBY</span>
   </button>
 
+  <!-- Jellyfish chat panel -->
+  <div class="jelly-chat" id="jelly-chat">
+    <button class="jelly-chat-toggle" id="jelly-chat-toggle" onclick="toggleJellyChat()" aria-label="Talk to the jellyfish">
+      <span class="jelly-chat-toggle-dot"></span>
+      <span class="jelly-chat-toggle-label">jellyfish</span>
+    </button>
+    <div class="jelly-chat-panel" id="jelly-chat-panel">
+      <div class="jelly-chat-header">
+        <span class="jelly-chat-eyebrow">your jellyfish</span>
+        <button class="jelly-chat-close" onclick="toggleJellyChat()" aria-label="Close">×</button>
+      </div>
+      <div class="jelly-chat-log" id="jelly-chat-log"></div>
+      <div class="jelly-chat-composer">
+        <input id="jelly-chat-input" placeholder="say something to the jellyfish..." onkeydown="if(event.key==='Enter') sendToJelly()">
+        <button class="jelly-chat-send" onclick="sendToJelly()">send</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Jellyfish control hint -->
   <div class="jelly-hint" id="jelly-hint">
     <span class="keycap">W</span><span class="keycap">A</span><span class="keycap">S</span><span class="keycap">D</span>
