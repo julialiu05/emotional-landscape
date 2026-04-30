@@ -676,10 +676,13 @@ function buildJellyfish3DLayer() {
           this.model = model;
           this.scene.add(model);
 
-          if (gltf.animations && gltf.animations.length) {
-            this.mixer = new THREE.AnimationMixer(model);
-            gltf.animations.forEach(c => this.mixer.clipAction(c).play());
-          }
+          // animations disabled — they were tilting the bell over time and
+          // making orientation appear inconsistent across screenshots.
+          // (re-enable by uncommenting this block if the model has a swim cycle worth playing)
+          // if (gltf.animations && gltf.animations.length) {
+          //   this.mixer = new THREE.AnimationMixer(model);
+          //   gltf.animations.forEach(c => this.mixer.clipAction(c).play());
+          // }
         },
         undefined,
         (err) => console.error('jellyfish glb load failed', err)
