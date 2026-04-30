@@ -502,41 +502,11 @@ function sendToJelly() {
   askJelly(txt);
 }
 
-// ---- JELLYFISH ROTATION DEBUG (live sliders → render reads these each frame) ----
-let _jellyRotX = -Math.PI / 2;   // initial: -90° (current default)
-let _jellyRotY = 0;
-let _jellyRotZ = 0;
-
-function setJellyRot(axis, deg) {
-  const rad = (parseFloat(deg) * Math.PI) / 180;
-  if (axis === 'x') _jellyRotX = rad;
-  if (axis === 'y') _jellyRotY = rad;
-  if (axis === 'z') _jellyRotZ = rad;
-  const label = document.getElementById('jd-' + axis);
-  if (label) label.textContent = `${Math.round(deg)}°`;
-  if (typeof map !== 'undefined' && map.triggerRepaint) map.triggerRepaint();
-}
-
-function copyJellyRot() {
-  const x = Math.round(_jellyRotX * 180 / Math.PI);
-  const y = Math.round(_jellyRotY * 180 / Math.PI);
-  const z = Math.round(_jellyRotZ * 180 / Math.PI);
-  const txt = `X: ${x}°  Y: ${y}°  Z: ${z}°`;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(txt).then(() => {
-      const btn = document.querySelector('.jd-copy');
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1200);
-      }
-    });
-  } else {
-    alert(txt);
-  }
-}
-
 // ---- JELLYFISH EXPLORER (3D GLB model rendered via Three.js custom layer) ----
+// final rotation tuned via the debug panel: X 4°, Y 2°, Z -127°
+const JELLY_ROT_X = (4 * Math.PI) / 180;
+const JELLY_ROT_Y = (2 * Math.PI) / 180;
+const JELLY_ROT_Z = (-127 * Math.PI) / 180;
 const JELLY_GLB_URL = 'cute_pastel_jellyfish.glb';
 const JELLY_ALTITUDE_M = 22;     // meters above the ground plane
 const JELLY_MODEL_SCALE = 18;    // model fits inside this cube (meters)
@@ -690,6 +660,12 @@ function buildJellyfish3DLayer() {
       this.renderer.autoClear = false;
       this.clock = new THREE.Clock();
 
+      // pulsing bottom light — gives the jelly a glow from below.
+      // its intensity oscillates each frame inside render().
+      this.bottomLight = new THREE.PointLight(0x9ec7ff, 2.2, 28, 1.4);
+      this.bottomLight.position.set(0, 0, 0);   // sits at the bottom of the centered model
+      this.scene.add(this.bottomLight);
+
       const loader = new THREE.GLTFLoader();
       loader.load(
         JELLY_GLB_URL,
@@ -706,6 +682,21 @@ function buildJellyfish3DLayer() {
           // pivot the model on its bottom-center so altitude is measured from the tentacles
           model.position.set(-center.x * norm, -box.min.y * norm, -center.z * norm);
           model.scale.setScalar(norm);
+
+          // make the jellyfish translucent so emotion washes / map colors pick through it
+          model.traverse((node) => {
+            if (node.isMesh && node.material) {
+              const mat = node.material;
+              if ('transparent' in mat) mat.transparent = true;
+              if ('opacity' in mat) mat.opacity = 0.55;
+              if ('depthWrite' in mat) mat.depthWrite = false;
+              // a touch of emissive so the bell holds its own light
+              if ('emissive' in mat && mat.emissive) {
+                mat.emissive.set(0x4a78ff);
+                if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0.18;
+              }
+            }
+          });
 
           this.model = model;
           this.scene.add(model);
@@ -729,6 +720,11 @@ function buildJellyfish3DLayer() {
       const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) * 0.001;
       const altitude = JELLY_ALTITUDE_M + Math.sin(t * 0.9) * 2.0;
 
+      // pulse the bottom light's intensity in time with the bob
+      if (this.bottomLight) {
+        this.bottomLight.intensity = 2.0 + Math.sin(t * 0.9 + 0.4) * 0.7;
+      }
+
       const merc = maplibregl.MercatorCoordinate.fromLngLat(
         [jellyfishShadowLngLat.lng, jellyfishShadowLngLat.lat],
         altitude
@@ -736,10 +732,9 @@ function buildJellyfish3DLayer() {
       // 1 unit in Three.js = 1 meter; the model is already pre-scaled to meters in onAdd
       const meterScale = merc.meterInMercatorCoordinateUnits();
 
-      // rotation driven by debug sliders so it can be tuned live
-      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), _jellyRotX);
-      const rotY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), _jellyRotY);
-      const rotZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), _jellyRotZ);
+      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), JELLY_ROT_X);
+      const rotY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), JELLY_ROT_Y);
+      const rotZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), JELLY_ROT_Z);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
