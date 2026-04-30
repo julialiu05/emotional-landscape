@@ -232,7 +232,7 @@ function setupAffectPad() {
     const axesEl = document.getElementById('affect-readout-axes');
     if (nameEl) nameEl.textContent = affectQuadrantName(affect.valence, affect.arousal);
     if (axesEl) axesEl.textContent =
-      `valence ${affect.valence.toFixed(2)} · arousal ${affect.arousal.toFixed(2)}`;
+      `valence ${affect.valence.toFixed(2)} · activation ${affect.arousal.toFixed(2)}`;
   }
 
   function onDown(e) {
@@ -591,10 +591,13 @@ function spawnJellyfish() {
   _jellyRaf = requestAnimationFrame(jellyLoop);
 }
 
-function syncJellyToCameraIfIdle() {
+function syncJellyToCameraIfIdle(e) {
   if (!jellyfishMarker) return;
   if (_jellySteered) return;         // user has grabbed control
   if (_jellySelfMove) return;        // we caused this movement
+  // skip user-driven movements (mouse drag, wheel zoom, pinch). These have an
+  // originalEvent on the moveend payload; programmatic flyTo / autoLocate don't.
+  if (e && e.originalEvent) return;
   const c = map.getCenter();
   jellyfishShadowLngLat = { lng: c.lng, lat: c.lat };
   updateJellyShadow();

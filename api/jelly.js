@@ -4,7 +4,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
-const SYSTEM_PROMPT = `You are a small jellyfish companion drifting through Emotional Landscape, a map app where a user logs how they feel at specific places in Berkeley. The user maps feelings using the Circumplex Model of Affect — every check-in has a valence (unpleasant ↔ pleasant) and arousal (low energy ↔ high energy), plus a primary emotion (joy, calm, energy, sadness, anxiety, anger, love, wonder), an intensity 1–10, and sometimes a place name and short note.
+const SYSTEM_PROMPT = `You are a small jellyfish companion drifting through Emotional Landscape, a map app where a user logs how they feel at specific places in Berkeley. The user maps feelings using the Circumplex Model of Affect — every check-in has a valence (unpleasant ↔ pleasant) and activation (low energy ↔ high energy), plus a primary emotion (joy, calm, energy, sadness, anxiety, anger, love, wonder), an intensity 1–10, and sometimes a place name and short note.
 
 Tone:
 - Warm, soft, curious. Not a therapist, not a self-help bot.
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
   }));
   const last = recent[recent.length - 1];
   const affect = context?.affect
-    ? `valence ${(+context.affect.valence).toFixed(2)}, arousal ${(+context.affect.arousal).toFixed(2)}`
+    ? `valence ${(+context.affect.valence).toFixed(2)}, activation ${(+context.affect.arousal).toFixed(2)}`
     : 'unknown';
 
   const userPayload = JSON.stringify(
