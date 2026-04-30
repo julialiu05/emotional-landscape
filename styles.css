@@ -2620,75 +2620,190 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
 .toggle-container, .mode-label,
 .toggle-input, .toggle-handle-wrapper, .toggle-base { display: none !important; }
 
-.login-form { display: flex; flex-direction: column; gap: 0; }
+/* clean white card form with blue border, sitting on the dark backdrop */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  padding: 22px;
+  border-radius: 20px;
+  border: 2px solid #2d79f3;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  box-shadow:
+    0 0 28px rgba(45, 121, 243, 0.35),
+    0 24px 60px -20px rgba(0, 0, 0, 0.55);
+}
 
 .login-input-stack {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 16px;
-  overflow: hidden;
-  margin-bottom: 14px;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-.input-group {
-  text-align: left;
-  display: flex;
-  align-items: center;
-  padding: 0 18px;
-}
-.input-group + .input-group { border-top: 1px solid rgba(255, 255, 255, 0.08); }
-.input-group label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.45);
-  width: 86px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-.login-input {
-  flex: 1;
-  padding: 15px 0;
+  background: transparent;
   border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  overflow: visible;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 5px;
+  padding: 0;
+  border: none;
+}
+.input-group + .input-group { border-top: none; }
+.input-group label {
+  color: #151717;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  width: auto;
+}
+
+.login-input {
+  height: 48px;
+  padding: 0 14px;
+  border: 1.5px solid #ecedec;
+  border-radius: 10px;
+  background: #fff;
   font: inherit;
   font-size: 15px;
+  font-family: inherit;
+  color: #151717;
   outline: none;
-  background: transparent;
-  color: #fff;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
+  transition: border-color 0.2s ease-in-out;
 }
-.login-input::placeholder { color: rgba(255, 255, 255, 0.32); font-style: italic; font-family: var(--font-serif-soft); }
+.login-input:focus { border-color: #2d79f3; }
+.login-input::placeholder {
+  color: #9a9a9a;
+  font-style: normal;
+  font-family: inherit;
+}
 
+/* animated submit button — black pill with violet aura + rotating aurora ring */
 .login-btn {
+  --black-700: hsla(0 0% 9% / 1);
+  --border_radius: 12px;
+  --transtion: 0.3s ease-in-out;
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
   width: 100%;
-  padding: 16px;
+  height: 50px;
+  margin-top: 12px;
+  padding: 0 2rem;
+  background-color: transparent;
   border: none;
-  border-radius: 999px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: var(--border_radius);
+  font-family: inherit;
+
   cursor: pointer;
-  color: #051026;
+  transform-origin: center;
+  transform: scale(calc(1 + (var(--active, 0) * 0.04)));
+  transition: transform var(--transtion);
+  overflow: hidden;
+}
+.login-btn::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  background-color: var(--black-700);
+  border-radius: var(--border_radius);
+  box-shadow:
+    inset 0 0.5px hsl(0, 0%, 100%),
+    inset 0 -1px 2px 0 hsl(0, 0%, 0%),
+    0 4px 10px -4px hsla(0 0% 0% / calc(1 - var(--active, 0))),
+    0 0 0 calc(var(--active, 0) * 0.375rem) hsl(260 97% 50% / 0.75);
+  transition: all var(--transtion);
+  z-index: 0;
+}
+.login-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  background-color: hsla(260 97% 61% / 0.75);
+  background-image:
+    radial-gradient(at 51% 89%, hsla(266, 45%, 74%, 1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, hsla(266, 36%, 60%, 1) 0px, transparent 50%),
+    radial-gradient(at 22% 91%, hsla(266, 36%, 60%, 1) 0px, transparent 50%);
+  background-position: top;
+  opacity: var(--active, 0);
+  border-radius: var(--border_radius);
+  transition: opacity var(--transtion);
+  z-index: 2;
+}
+.login-btn:is(:hover, :focus-visible) { --active: 1; }
+.login-btn:active { transform: scale(1); }
+
+.login-btn .dots_border {
+  --size_border: calc(100% + 2px);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--size_border);
+  height: var(--size_border);
+  background-color: transparent;
+  border-radius: var(--border_radius);
+  overflow: hidden;
+  z-index: 1;
+}
+.login-btn .dots_border::before {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform-origin: left center;
+  transform: rotate(0deg);
+  width: 100%;
+  height: 2rem;
+  background-color: white;
+  -webkit-mask: linear-gradient(transparent 0%, white 120%);
+  mask: linear-gradient(transparent 0%, white 120%);
+  animation: rotateBtnRing 2s linear infinite;
+}
+@keyframes rotateBtnRing {
+  to { transform: rotate(360deg); }
+}
+
+.login-btn .text_button {
+  position: relative;
+  z-index: 10;
+  background-image: linear-gradient(
+    90deg,
+    hsla(0 0% 100% / 1) 0%,
+    hsla(0 0% 100% / 0.85) 120%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  font-size: 14px;
+  font-weight: 600;
+  color: transparent;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  background: linear-gradient(180deg, #b9d8ff 0%, #7eb6ff 100%);
-  box-shadow:
-    0 0 32px rgba(126, 182, 255, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.4) inset,
-    0 12px 28px -12px rgba(80, 150, 255, 0.6);
-  transition: filter 0.25s var(--ease-soft), transform 0.12s, box-shadow 0.25s;
-  margin-top: 4px;
 }
-.login-btn:hover {
-  filter: brightness(1.08);
-  box-shadow:
-    0 0 44px rgba(126, 182, 255, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.5) inset,
-    0 14px 32px -12px rgba(80, 150, 255, 0.7);
-}
-.login-btn:active { transform: scale(0.985); }
 
 .login-skip {
   width: 100%;

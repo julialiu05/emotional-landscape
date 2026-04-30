@@ -33,15 +33,16 @@ function switchLoginTab(mode) {
   const heading = document.getElementById('login-heading');
   const sub = document.getElementById('login-sub');
 
+  const btnText = btn ? (btn.querySelector('.text_button') || btn) : null;
   if (mode === 'signup') {
     if (nameGroup) nameGroup.style.display = 'flex';
-    if (btn) btn.textContent = 'Enter';
+    if (btnText) btnText.textContent = 'Enter';
     if (heading) heading.innerHTML = 'Begin <em>here</em>.';
     if (sub) sub.textContent = 'Create an account to keep your check-ins.';
     if (footer) footer.innerHTML = 'Already have an account? <a onclick="setLever(false)">Log in</a>';
   } else {
     if (nameGroup) nameGroup.style.display = 'none';
-    if (btn) btn.textContent = 'Enter';
+    if (btnText) btnText.textContent = 'Enter';
     if (heading) heading.innerHTML = 'Welcome <em>back</em>.';
     if (sub) sub.textContent = 'Map how the places you move through make you feel.';
     if (footer) footer.innerHTML = 'No account yet? <a onclick="setLever(true)">Sign up</a>';
