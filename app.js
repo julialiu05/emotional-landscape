@@ -502,6 +502,40 @@ function sendToJelly() {
   askJelly(txt);
 }
 
+// ---- JELLYFISH ROTATION DEBUG (live sliders → render reads these each frame) ----
+let _jellyRotX = -Math.PI / 2;   // initial: -90° (current default)
+let _jellyRotY = 0;
+let _jellyRotZ = 0;
+
+function setJellyRot(axis, deg) {
+  const rad = (parseFloat(deg) * Math.PI) / 180;
+  if (axis === 'x') _jellyRotX = rad;
+  if (axis === 'y') _jellyRotY = rad;
+  if (axis === 'z') _jellyRotZ = rad;
+  const label = document.getElementById('jd-' + axis);
+  if (label) label.textContent = `${Math.round(deg)}°`;
+  if (typeof map !== 'undefined' && map.triggerRepaint) map.triggerRepaint();
+}
+
+function copyJellyRot() {
+  const x = Math.round(_jellyRotX * 180 / Math.PI);
+  const y = Math.round(_jellyRotY * 180 / Math.PI);
+  const z = Math.round(_jellyRotZ * 180 / Math.PI);
+  const txt = `X: ${x}°  Y: ${y}°  Z: ${z}°`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => {
+      const btn = document.querySelector('.jd-copy');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1200);
+      }
+    });
+  } else {
+    alert(txt);
+  }
+}
+
 // ---- JELLYFISH EXPLORER (3D GLB model rendered via Three.js custom layer) ----
 const JELLY_GLB_URL = 'cute_pastel_jellyfish.glb';
 const JELLY_ALTITUDE_M = 22;     // meters above the ground plane
@@ -702,14 +736,18 @@ function buildJellyfish3DLayer() {
       // 1 unit in Three.js = 1 meter; the model is already pre-scaled to meters in onAdd
       const meterScale = merc.meterInMercatorCoordinateUnits();
 
-      // bell up, tentacles dangling: -π/2 around X (animations disabled so it stays put)
-      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+      // rotation driven by debug sliders so it can be tuned live
+      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), _jellyRotX);
+      const rotY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), _jellyRotY);
+      const rotZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), _jellyRotZ);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
         .makeTranslation(merc.x, merc.y, merc.z)
         .scale(new THREE.Vector3(meterScale, -meterScale, meterScale))
-        .multiply(rotX);
+        .multiply(rotZ)
+        .multiply(rotX)
+        .multiply(rotY);
 
       this.camera.projectionMatrix = m.multiply(l);
       this.renderer.resetState();

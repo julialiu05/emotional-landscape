@@ -194,6 +194,27 @@
   </div>
 
   <div class="drop-reticle" id="drop-reticle"></div>
+
+  <!-- Jellyfish rotation debug panel -->
+  <div class="jelly-debug" id="jelly-debug">
+    <div class="jd-title">Jelly rotation</div>
+    <div class="jd-row">
+      <label>X</label>
+      <input type="range" min="-180" max="180" step="1" value="-90" id="jd-slider-x" oninput="setJellyRot('x', this.value)">
+      <span id="jd-x">-90°</span>
+    </div>
+    <div class="jd-row">
+      <label>Y</label>
+      <input type="range" min="-180" max="180" step="1" value="0" id="jd-slider-y" oninput="setJellyRot('y', this.value)">
+      <span id="jd-y">0°</span>
+    </div>
+    <div class="jd-row">
+      <label>Z</label>
+      <input type="range" min="-180" max="180" step="1" value="0" id="jd-slider-z" oninput="setJellyRot('z', this.value)">
+      <span id="jd-z">0°</span>
+    </div>
+    <button class="jd-copy" onclick="copyJellyRot()">Copy values</button>
+  </div>
 </div>
 
 <!-- DASHBOARD VIEW -->
