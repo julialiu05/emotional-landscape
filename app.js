@@ -2,16 +2,9 @@
 let currentAuthMode = 'login';
 
 function checkAuth() {
-  const user = JSON.parse(localStorage.getItem('el_user') || 'null');
-  if (user) {
-    document.getElementById('login-page').classList.add('hidden');
-    setTimeout(() => {
-      document.getElementById('login-page').style.display = 'none';
-      if (typeof map !== 'undefined') { map.resize(); autoLocate(); }
-    maybeShowAffectOnboarding();
-    }, 600);
-    return true;
-  }
+  // always show the login page as the entrance, even for returning sessions.
+  // the saved user (if any) is preserved in localStorage and reused after the
+  // user clicks Enter (handleAuth) or Skip (skipLogin).
   return false;
 }
 
@@ -108,6 +101,14 @@ document.addEventListener('DOMContentLoaded', () => {
   setupAffectPad();
   setupLogPad();
   startLoginEmotionTicker();
+  // pre-fill email for returning users — they still click Enter to proceed
+  try {
+    const savedUser = JSON.parse(localStorage.getItem('el_user') || 'null');
+    if (savedUser && savedUser.email && savedUser.email !== 'guest@local') {
+      const emailInput = document.getElementById('login-email');
+      if (emailInput) emailInput.value = savedUser.email;
+    }
+  } catch (_) {}
   checkAuth();
 });
 
