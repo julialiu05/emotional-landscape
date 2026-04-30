@@ -1,13 +1,13 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  /* paper — warm cream base (slightly cooler/cleaner than before, matches mockup) */
-  --paper-0: #f0ebe1;
-  --paper-1: #e8e2d4;
-  --paper-2: #ddd5c3;
-  --paper-3: #c8bfac;
+  /* paper — pure white surfaces with very subtle blue undertones */
+  --paper-0: #ffffff;
+  --paper-1: #f5f7ff;
+  --paper-2: #e8edff;
+  --paper-3: #c8d3f5;
 
-  /* watercolor wash pigments — kept for any legacy references */
+  /* legacy watercolor pigments (kept for any old references; not used in main palette) */
   --blush: #e8c5c1;
   --blush-deep: #d9a7a0;
   --peach: #f2caa8;
@@ -16,31 +16,35 @@
   --sage: #b0c1a4;
   --sand: #e8d5b7;
 
-  /* near-black ink (high contrast for editorial feel) */
-  --ink: #1a1a1a;
-  --ink-2: #2e2e2e;
-  --ink-soft: rgba(26, 26, 26, 0.72);
-  --muted: rgba(26, 26, 26, 0.52);
-  --faint: rgba(26, 26, 26, 0.34);
-  --dim: rgba(26, 26, 26, 0.18);
+  /* cool ink — slightly desaturated blue-black for the editorial feel on white */
+  --ink: #0a0e22;
+  --ink-2: #1f2540;
+  --ink-soft: rgba(10, 14, 34, 0.70);
+  --muted: rgba(10, 14, 34, 0.50);
+  --faint: rgba(10, 14, 34, 0.32);
+  --dim: rgba(10, 14, 34, 0.16);
 
   /* hairlines */
-  --hairline: rgba(26, 26, 26, 0.09);
-  --hairline-strong: rgba(26, 26, 26, 0.18);
+  --hairline: rgba(10, 14, 34, 0.08);
+  --hairline-strong: rgba(10, 14, 34, 0.16);
 
-  /* golden mustard accent — primary CTAs + glow */
-  --accent: #e8a544;
-  --accent-deep: #c98a2c;
-  --accent-soft: #f3c777;
-  --accent-glow: rgba(232, 165, 68, 0.45);
-  --accent-tint: rgba(232, 165, 68, 0.12);
+  /* royal-blue accent — primary CTAs + glow */
+  --accent: #4a7eff;
+  --accent-deep: #3361e8;
+  --accent-soft: #7ea5ff;
+  --accent-glow: rgba(74, 126, 255, 0.32);
+  --accent-tint: rgba(74, 126, 255, 0.10);
 
-  /* translucent paper surfaces */
-  --surface: rgba(252, 250, 243, 0.7);
-  --surface-strong: rgba(252, 250, 243, 0.92);
-  --surface-soft: rgba(252, 250, 243, 0.5);
-  --surface-warm: rgba(245, 235, 218, 0.65);
-  --surface-hover: rgba(252, 250, 243, 0.86);
+  /* gradient pairs for buttons / hero surfaces */
+  --gradient-blue: linear-gradient(135deg, #5a8bff 0%, #3361e8 100%);
+  --gradient-blue-soft: linear-gradient(135deg, #c4d6ff 0%, #7ea5ff 100%);
+
+  /* translucent white surfaces */
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface-soft: rgba(255, 255, 255, 0.55);
+  --surface-warm: rgba(245, 247, 255, 0.78);
+  --surface-hover: rgba(255, 255, 255, 0.88);
 
   /* legacy aliases */
   --bg: var(--paper-0);
@@ -54,24 +58,24 @@
   --fill-primary: var(--surface);
   --fill-secondary: var(--surface-soft);
   --fill-tertiary: var(--surface-warm);
-  --fill-quaternary: rgba(252, 250, 243, 0.3);
-  --red: #c97062;
-  --green: #8aa97a;
+  --fill-quaternary: rgba(245, 247, 255, 0.4);
+  --red: #d04545;
+  --green: #3aa97a;
   --text: var(--ink);
   --text-soft: var(--muted);
 
-  /* typography — DM Serif Display for displays, Inter for UI */
+  /* typography */
   --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-serif: "DM Serif Display", "Instrument Serif", "New York", "Times New Roman", serif;
   --font-serif-soft: "Instrument Serif", "New York", "Times New Roman", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* soft warm shadows — slightly cooler than before */
-  --halo-xs: 0 1px 2px rgba(60, 50, 30, 0.05);
-  --halo-sm: 0 4px 14px -6px rgba(60, 50, 30, 0.10);
-  --halo-md: 0 12px 30px -14px rgba(60, 50, 30, 0.14);
-  --halo-lg: 0 24px 60px -24px rgba(60, 50, 30, 0.18);
-  --halo-float: 0 30px 80px -30px rgba(60, 50, 30, 0.22);
+  /* cool blue-tinted shadows */
+  --halo-xs: 0 1px 2px rgba(50, 80, 160, 0.05);
+  --halo-sm: 0 4px 14px -6px rgba(50, 80, 160, 0.10);
+  --halo-md: 0 12px 30px -14px rgba(50, 80, 160, 0.14);
+  --halo-lg: 0 24px 60px -24px rgba(50, 80, 160, 0.18);
+  --halo-float: 0 30px 80px -30px rgba(50, 80, 160, 0.22);
 
   --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-breath: cubic-bezier(0.45, 0, 0.55, 1);
@@ -81,7 +85,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ---- Watercolor backdrop ---- */
+/* ---- White backdrop with soft blue gradients ---- */
 body {
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
@@ -104,25 +108,15 @@ body::before {
   z-index: -2;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 55% 45% at 12% 18%, rgba(232, 197, 193, 0.55), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 88% 14%, rgba(242, 202, 168, 0.5), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 92% 84%, rgba(197, 188, 224, 0.42), transparent 65%),
-    radial-gradient(ellipse 50% 45% at 8% 88%, rgba(176, 193, 164, 0.38), transparent 65%),
-    radial-gradient(ellipse 70% 40% at 50% 55%, rgba(250, 236, 216, 0.4), transparent 70%),
+    radial-gradient(ellipse 70% 55% at 12% 8%, rgba(126, 165, 255, 0.18), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 92% 92%, rgba(74, 126, 255, 0.12), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 88% 18%, rgba(196, 214, 255, 0.20), transparent 65%),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(126, 165, 255, 0.10), transparent 70%),
     var(--paper-0);
 }
 
-/* paper grain — warm, not cold */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.28;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6 0 0 0 0 0.44 0 0 0 0 0.36 0 0 0 0.28 0'/></filter><rect width='320' height='320' filter='url(%23n)'/></svg>");
-}
+/* drop the grain — clean white shouldn't have a multiply layer */
+body::after { display: none; }
 
 #particles { display: none; }
 
@@ -1548,18 +1542,18 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
 }
 .btn-secondary:hover { background: var(--surface-warm); color: var(--ink); border-color: var(--ink-soft); }
 .btn-primary {
-  background: var(--accent);
+  background: var(--gradient-blue);
   color: #fff;
-  border-color: var(--accent);
+  border-color: transparent;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  box-shadow: 0 0 22px var(--accent-glow);
+  box-shadow: 0 8px 24px -8px var(--accent-glow), 0 0 24px var(--accent-glow);
 }
 .btn-primary:hover {
-  background: var(--accent-deep);
-  border-color: var(--accent-deep);
-  box-shadow: 0 0 30px var(--accent-glow);
+  filter: brightness(1.08);
+  border-color: transparent;
+  box-shadow: 0 10px 30px -8px var(--accent-glow), 0 0 32px var(--accent-glow);
 }
 
 /* ---- DASHBOARD ---- */

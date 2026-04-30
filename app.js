@@ -699,8 +699,8 @@ function buildJellyfish3DLayer() {
       // 1 unit in Three.js = 1 meter; the model is already pre-scaled to meters in onAdd
       const meterScale = merc.meterInMercatorCoordinateUnits();
 
-      // standard Y-up GLB → MapLibre Z-up world: rotate +90° around X
-      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+      // flip jellyfish 180° from previous orientation (-pi/2 instead of +pi/2)
+      const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
@@ -908,23 +908,23 @@ map.on('load', () => {
     }
   };
 
-  // paper ground
-  tint('background', 'background-color', '#fbf6ed');
+  // white ground
+  tint('background', 'background-color', '#ffffff');
 
-  // parks, forest, grass → sage
+  // parks, forest, grass → very pale blue-green
   ['park', 'park_outline', 'landcover_wood', 'landcover_grass', 'landuse_residential']
-    .forEach(id => tint(id, 'fill-color', '#cdd9bf'));
+    .forEach(id => tint(id, 'fill-color', '#e6efff'));
 
-  // water → soft mauve-lavender
-  ['water', 'water_name'].forEach(id => tint(id, 'fill-color', '#c8c0dc'));
+  // water → pale electric blue
+  ['water', 'water_name'].forEach(id => tint(id, 'fill-color', '#bcd0ff'));
 
-  // roads → warm ivory
+  // roads → near-white with a hint of blue
   const roadIds = ['highway_motorway', 'highway_trunk', 'highway_primary',
     'highway_secondary', 'highway_tertiary', 'highway_minor', 'highway_path',
     'road_motorway', 'road_trunk_primary', 'road_secondary_tertiary', 'road_minor',
     'tunnel_motorway', 'bridge_motorway'];
   roadIds.forEach(id => {
-    tint(id, 'line-color', '#f3e6cf');
+    tint(id, 'line-color', '#f4f7ff');
     tint(id, 'line-opacity', 0.95);
   });
 
@@ -1068,10 +1068,10 @@ map.on('load', () => {
       paint: {
         'fill-extrusion-color': [
           'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
-          0, '#f0ebde',
-          20, '#e3dccb',
-          60, '#cfc6ae',
-          150, '#a89b80'
+          0, '#eef2ff',
+          20, '#d9e1ff',
+          60, '#b6c4ee',
+          150, '#7e93d4'
         ],
         'fill-extrusion-height': [
           'interpolate', ['linear'], ['zoom'],
