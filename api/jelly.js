@@ -29,9 +29,31 @@ When responding to "[idle_check]":
 
 Otherwise, respond naturally to what they wrote.`;
 
-const client = new Anthropic();   // reads ANTHROPIC_API_KEY from process.env
+// don't construct the client at module-scope — if the env var is missing,
+// the constructor throws before we get a chance to surface a useful error.
+function getClient() {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const err = new Error('ANTHROPIC_API_KEY is not set in the runtime env');
+    err.code = 'missing_api_key';
+    throw err;
+  }
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+}
 
 export default async function handler(req, res) {
+  // simple health probe: GET reports whether the env var is wired up
+  if (req.method === 'GET') {
+    res.status(200).json({
+      ok: true,
+      hasKey: !!process.env.ANTHROPIC_API_KEY,
+      keyPrefix: process.env.ANTHROPIC_API_KEY
+        ? process.env.ANTHROPIC_API_KEY.slice(0, 8) + '...'
+        : null,
+      runtime: process.env.VERCEL ? 'vercel' : 'local'
+    });
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method not allowed' });
     return;
@@ -67,6 +89,7 @@ export default async function handler(req, res) {
   );
 
   try {
+    const client = getClient();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 240,
@@ -81,6 +104,17 @@ export default async function handler(req, res) {
     res.status(200).json({ reply });
   } catch (err) {
     console.error('jelly api error:', err);
-    res.status(500).json({ error: 'jelly is napping' });
+    if (err && err.code === 'missing_api_key') {
+      res.status(500).json({ error: 'no_api_key', detail: 'ANTHROPIC_API_KEY is not visible to the function. Add it in Vercel dashboard → Settings → Environment Variables, then redeploy.' });
+      return;
+    }
+    if (err && err.status === 401) {
+      res.status(500).json({ error: 'unauthorized', detail: 'Anthropic rejected the key. Check it has not expired or been rotated.' });
+      return;
+    }
+    res.status(500).json({
+      error: 'jelly is napping',
+      detail: (err && (err.message || String(err))) || 'unknown'
+    });
   }
 }
