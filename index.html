@@ -22,30 +22,32 @@
   <div class="login-glow login-glow-core" aria-hidden="true"></div>
 
   <div class="login-stage">
-    <div class="login-brand">Emotional Landscape</div>
+    <div class="login-brand">Emotional<br/>Landscape</div>
 
-    <div class="segmented" role="tablist">
-      <div class="segmented-option active" id="seg-login" onclick="setLever(false)">Log in</div>
-      <div class="segmented-option" id="seg-signup" onclick="setLever(true)">Sign up</div>
-    </div>
-
-    <div class="login-form" id="login-form">
-      <div class="login-input-stack">
-        <div class="input-group" id="name-group" style="display:none;">
-          <label>Name</label>
-          <input class="login-input" type="text" id="signup-name" placeholder="Your name">
-        </div>
-        <div class="input-group">
-          <label>Email</label>
-          <input class="login-input" type="email" id="login-email" placeholder="you@example.com">
-        </div>
-        <div class="input-group">
-          <label>Password</label>
-          <input class="login-input" type="password" id="login-password" placeholder="Required">
-        </div>
+    <div class="login-bottom">
+      <div class="segmented" role="tablist">
+        <div class="segmented-option active" id="seg-login" onclick="setLever(false)">Log in</div>
+        <div class="segmented-option" id="seg-signup" onclick="setLever(true)">Sign up</div>
       </div>
-      <div class="login-error" id="login-error"></div>
-      <button class="login-btn" id="login-btn" onclick="handleAuth()">Enter</button>
+
+      <div class="login-form" id="login-form">
+        <div class="login-input-stack">
+          <div class="input-group" id="name-group" style="display:none;">
+            <label>Name</label>
+            <input class="login-input" type="text" id="signup-name" placeholder="Your name">
+          </div>
+          <div class="input-group">
+            <label>Email</label>
+            <input class="login-input" type="email" id="login-email" placeholder="you@example.com">
+          </div>
+          <div class="input-group">
+            <label>Password</label>
+            <input class="login-input" type="password" id="login-password" placeholder="Required">
+          </div>
+        </div>
+        <div class="login-error" id="login-error"></div>
+        <button class="login-btn" id="login-btn" onclick="handleAuth()">Enter</button>
+      </div>
     </div>
   </div>
 </div>
