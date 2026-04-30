@@ -34,17 +34,17 @@ function switchLoginTab(mode) {
   const sub = document.getElementById('login-sub');
 
   if (mode === 'signup') {
-    nameGroup.style.display = 'flex';
-    btn.textContent = 'Enter';
-    heading.innerHTML = 'Begin <em>here</em>.';
-    sub.textContent = 'Create an account to keep your check-ins.';
-    footer.innerHTML = 'Already have an account? <a onclick="setLever(false)">Log in</a>';
+    if (nameGroup) nameGroup.style.display = 'flex';
+    if (btn) btn.textContent = 'Enter';
+    if (heading) heading.innerHTML = 'Begin <em>here</em>.';
+    if (sub) sub.textContent = 'Create an account to keep your check-ins.';
+    if (footer) footer.innerHTML = 'Already have an account? <a onclick="setLever(false)">Log in</a>';
   } else {
-    nameGroup.style.display = 'none';
-    btn.textContent = 'Enter';
-    heading.innerHTML = 'Welcome <em>back</em>.';
-    sub.textContent = 'Map how the places you move through make you feel.';
-    footer.innerHTML = 'No account yet? <a onclick="setLever(true)">Sign up</a>';
+    if (nameGroup) nameGroup.style.display = 'none';
+    if (btn) btn.textContent = 'Enter';
+    if (heading) heading.innerHTML = 'Welcome <em>back</em>.';
+    if (sub) sub.textContent = 'Map how the places you move through make you feel.';
+    if (footer) footer.innerHTML = 'No account yet? <a onclick="setLever(true)">Sign up</a>';
   }
 }
 
@@ -100,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   setupAffectPad();
   setupLogPad();
-  startLoginEmotionTicker();
   // pre-fill email for returning users — they still click Enter to proceed
   try {
     const savedUser = JSON.parse(localStorage.getItem('el_user') || 'null');

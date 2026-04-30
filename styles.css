@@ -2465,7 +2465,7 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
 .login-left, .login-right,
 .login-right-orb, .login-right-quote { display: none !important; }
 
-/* centered single column */
+/* centered single column — children fade in one by one after the blob pulses */
 .login-stage {
   position: relative;
   z-index: 2;
@@ -2474,16 +2474,31 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
   padding: 40px;
   text-align: center;
   color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 22px;
+}
+.login-stage > * {
+  opacity: 0;
+  animation: loginEnter 0.9s var(--ease-soft) forwards;
+}
+.login-stage > .login-brand    { animation-delay: 1.4s; }
+.login-stage > .segmented      { animation-delay: 1.9s; }
+.login-stage > .login-form     { animation-delay: 2.4s; }
+@keyframes loginEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .login-brand {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.26em;
   text-transform: uppercase;
-  margin-bottom: 56px;
+  margin: 0 auto 36px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -2561,8 +2576,8 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 999px;
-  padding: 3px;
-  margin-bottom: 22px;
+  padding: 4px;
+  margin: 0;
   position: relative;
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
