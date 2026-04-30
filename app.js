@@ -702,14 +702,17 @@ function buildJellyfish3DLayer() {
       // 1 unit in Three.js = 1 meter; the model is already pre-scaled to meters in onAdd
       const meterScale = merc.meterInMercatorCoordinateUnits();
 
-      // bell up, tentacles dangling down: -π/2 around X
+      // bell up, tentacles dangling down — rotate around X to stand the model,
+      // then around Y to spin the bell so it faces the camera squarely
       const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+      const rotY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2);
 
       const m = new THREE.Matrix4().fromArray(matrix);
       const l = new THREE.Matrix4()
         .makeTranslation(merc.x, merc.y, merc.z)
         .scale(new THREE.Vector3(meterScale, -meterScale, meterScale))
-        .multiply(rotX);
+        .multiply(rotX)
+        .multiply(rotY);
 
       this.camera.projectionMatrix = m.multiply(l);
       this.renderer.resetState();
