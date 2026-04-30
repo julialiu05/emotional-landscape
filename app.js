@@ -502,6 +502,101 @@ function sendToJelly() {
   askJelly(txt);
 }
 
+// ---- DOCK CHAT (the always-visible bottom bar) ----
+async function sendDockToJelly() {
+  const input = document.getElementById('jelly-dock-input');
+  if (!input) return;
+  const txt = input.value.trim();
+  if (!txt) return;
+  input.value = '';
+
+  appendDockMessage('you', txt);
+  const loaderId = appendDockMessage('jelly-loading');
+
+  const ctx = buildJellyContext({});
+  const minDelay = new Promise(r => setTimeout(r, 500));
+
+  let reply = null;
+  try {
+    const res = await fetch('/api/jelly', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: txt, context: ctx })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      reply = (data && data.reply) || null;
+    }
+  } catch (_) {}
+  if (!reply) reply = localJellyFallback(txt, ctx);
+
+  await minDelay;
+  replaceDockLoading(loaderId, reply);
+}
+
+function dockProactiveReply(message, contextExtras) {
+  // used by submitEntry-style triggers; surfaces in the dock feed
+  const ctx = buildJellyContext(contextExtras || {});
+  const loaderId = appendDockMessage('jelly-loading');
+  const minDelay = new Promise(r => setTimeout(r, 600));
+
+  (async () => {
+    let reply = null;
+    try {
+      const res = await fetch('/api/jelly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, context: ctx })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        reply = (data && data.reply) || null;
+      }
+    } catch (_) {}
+    if (!reply) reply = localJellyFallback(message, ctx);
+    await minDelay;
+    replaceDockLoading(loaderId, reply);
+  })();
+}
+
+function appendDockMessage(who, text) {
+  const feed = document.getElementById('jelly-dock-feed');
+  if (!feed) return null;
+  const id = 'jdm-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  const div = document.createElement('div');
+  div.className = `jdm jdm-${who}`;
+  div.id = id;
+  if (who === 'jelly-loading') {
+    div.innerHTML = '<span class="jdm-dots"><span></span><span></span><span></span></span>';
+  } else {
+    div.textContent = text;
+  }
+  feed.appendChild(div);
+
+  // scroll feed to newest at the bottom
+  feed.scrollTop = feed.scrollHeight;
+
+  // limit visible history to keep the dock light
+  const all = feed.querySelectorAll('.jdm');
+  if (all.length > 8) all[0].remove();
+
+  return id;
+}
+
+function replaceDockLoading(loaderId, text) {
+  const el = loaderId ? document.getElementById(loaderId) : null;
+  if (el) {
+    el.classList.remove('jdm-jelly-loading');
+    el.classList.add('jdm-jelly');
+    el.innerHTML = '';
+    el.textContent = text;
+    const feed = document.getElementById('jelly-dock-feed');
+    if (feed) feed.scrollTop = feed.scrollHeight;
+  } else {
+    appendDockMessage('jelly', text);
+  }
+}
+
 // ---- JELLYFISH EXPLORER (3D GLB model rendered via Three.js custom layer) ----
 // final rotation tuned via the debug panel: X 4°, Y 2°, Z -127°
 const JELLY_ROT_X = (4 * Math.PI) / 180;
@@ -1484,8 +1579,8 @@ function submitEntry() {
   renderWorldChat();
   if (document.getElementById('chat-list')) renderChat();
   closeModal();
-  // jelly proactively reacts to the just-logged feeling
-  setTimeout(() => askJelly('[just_logged]', { placeNow: entry.placeName || null }), 800);
+  // jelly proactively reacts to the just-logged feeling — surfaces in the bottom dock
+  setTimeout(() => dockProactiveReply('[just_logged]', { placeNow: entry.placeName || null }), 800);
   document.getElementById('map-hint').style.opacity = '0';
   updateSidebarStats();
   updateMapInfo();
@@ -1497,9 +1592,12 @@ const VIEW_TITLES = { map: 'Map', dashboard: 'Insights', journal: 'Messages' };
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.tab-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
   document.getElementById(name + '-view').classList.add('active');
   const tabBtn = document.querySelector(`.tab-item[data-view="${name}"]`);
   if (tabBtn) tabBtn.classList.add('active');
+  const navTab = document.querySelector(`.nav-tab[data-view="${name}"]`);
+  if (navTab) navTab.classList.add('active');
 
   const title = document.getElementById('nav-bar-title');
   if (title) title.textContent = VIEW_TITLES[name];
