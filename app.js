@@ -302,6 +302,77 @@ function showNearby() {
 // ---- JELLYFISH CHAT (RAG via /api/jelly serverless function) ----
 let _jellyChatBusy = false;
 
+// per-emotion fallback responses for prototype mode (used when /api/jelly is
+// unreachable or no ANTHROPIC_API_KEY is set yet). Same gentle-witness tone
+// as the live system prompt, just hand-written.
+const JELLY_EMOTION_LINES = {
+  joy: [
+    "{place} held some lightness. what kept it there?",
+    "joy at {place}. small kind, or one that surprised you?",
+    "noted — it matters that you log the bright ones too."
+  ],
+  calm: [
+    "calm at {place}. did it find you, or did you find it?",
+    "settled. that's a useful shape to know.",
+    "peace near {place}. quiet, or just unhurried?"
+  ],
+  energy: [
+    "buzzing near {place}. what's it pulling you toward?",
+    "high charge logged. anything you want to do with it?",
+    "bright and moving. i'll witness."
+  ],
+  sadness: [
+    "sadness at {place}. you don't have to do anything with it.",
+    "logged. sit with it as long as you need.",
+    "is it about the place, or is the place just where it landed?"
+  ],
+  anxiety: [
+    "anxious near {place}. one small thing — what's the loudest piece?",
+    "the spiral. breath if you can. i'll keep the seat warm.",
+    "noted. did it follow you in, or did the place stir it up?"
+  ],
+  anger: [
+    "anger near {place}. that's loud. what would it say if it had words?",
+    "logged. anger usually points at something — notice where it aims.",
+    "real and worth marking. don't apologize for it."
+  ],
+  love: [
+    "love at {place}. who's it for?",
+    "warm. logged.",
+    "the kind that stays, or the kind that visits?"
+  ],
+  wonder: [
+    "wonder at {place}. what made the world feel bigger?",
+    "logged. those moments don't always announce themselves.",
+    "rare and worth a pin."
+  ]
+};
+const JELLY_IDLE_LINES = [
+  "what's the air like where you are?",
+  "small check-in: how's your chest?",
+  "stop and notice — anything moved?"
+];
+const JELLY_GENERIC_LINES = [
+  "still listening.",
+  "with you. say more if you want.",
+  "tell me where that's coming from.",
+  "i hear you. nothing to fix, just here."
+];
+
+function localJellyFallback(message, ctx) {
+  const last = (ctx.recentEntries || []).slice(-1)[0];
+  const place = (last && last.place) || 'where you are';
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  if (message === '[just_logged]') {
+    const emotion = (last && last.emotion) || 'joy';
+    const lines = JELLY_EMOTION_LINES[emotion] || JELLY_EMOTION_LINES.joy;
+    return pick(lines).replace('{place}', place);
+  }
+  if (message === '[idle_check]') return pick(JELLY_IDLE_LINES);
+  return pick(JELLY_GENERIC_LINES);
+}
+
 function buildJellyContext(extra = {}) {
   const recent = entries.slice(-6).map(e => ({
     emotion: (e.emotions || [])[0],
@@ -323,23 +394,36 @@ function buildJellyContext(extra = {}) {
 async function askJelly(message, contextExtras) {
   if (_jellyChatBusy) return;
   _jellyChatBusy = true;
+
+  const ctx = buildJellyContext(contextExtras || {});
+  // open the panel up-front so the user can see the loading dots + reply land
+  openJellyChat();
   appendJellyChat({ who: 'you', text: message === '[just_logged]' || message === '[idle_check]' ? null : message });
   appendJellyChat({ who: 'jelly', loading: true });
+
+  // brief artificial delay so the loading dots register even when we go local
+  const minDelay = new Promise(r => setTimeout(r, 600));
+
+  let reply = null;
   try {
     const res = await fetch('/api/jelly', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, context: buildJellyContext(contextExtras || {}) })
+      body: JSON.stringify({ message, context: ctx })
     });
-    if (!res.ok) throw new Error('bad response');
-    const data = await res.json();
-    replaceLoadingJellyMessage(data.reply || '...');
-    openJellyChat();  // make sure it's visible
+    if (res.ok) {
+      const data = await res.json();
+      reply = (data && data.reply) || null;
+    }
   } catch (e) {
-    replaceLoadingJellyMessage('mm, the current pulled me away. try again?');
-  } finally {
-    _jellyChatBusy = false;
+    // network or function error → drop to fallback
   }
+
+  if (!reply) reply = localJellyFallback(message, ctx);
+
+  await minDelay;
+  replaceLoadingJellyMessage(reply);
+  _jellyChatBusy = false;
 }
 
 function appendJellyChat({ who, text, loading }) {
