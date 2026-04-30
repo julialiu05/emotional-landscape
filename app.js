@@ -42,13 +42,13 @@ function switchLoginTab(mode) {
 
   if (mode === 'signup') {
     nameGroup.style.display = 'flex';
-    btn.textContent = 'Create account';
+    btn.textContent = 'Enter';
     heading.innerHTML = 'Begin <em>here</em>.';
     sub.textContent = 'Create an account to keep your check-ins.';
     footer.innerHTML = 'Already have an account? <a onclick="setLever(false)">Log in</a>';
   } else {
     nameGroup.style.display = 'none';
-    btn.textContent = 'Log in';
+    btn.textContent = 'Enter';
     heading.innerHTML = 'Welcome <em>back</em>.';
     sub.textContent = 'Map how the places you move through make you feel.';
     footer.innerHTML = 'No account yet? <a onclick="setLever(true)">Sign up</a>';
@@ -107,8 +107,28 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   setupAffectPad();
   setupLogPad();
+  startLoginEmotionTicker();
   checkAuth();
 });
+
+// rotating emotion word on the login page
+const LOGIN_TICKER_WORDS = ['joy', 'calm', 'energy', 'sadness', 'anxiety', 'anger', 'love', 'wonder'];
+let _loginTickerIdx = 0;
+let _loginTickerTimer = null;
+function startLoginEmotionTicker() {
+  const el = document.getElementById('login-ticker-word');
+  if (!el) return;
+  if (_loginTickerTimer) clearInterval(_loginTickerTimer);
+  el.textContent = LOGIN_TICKER_WORDS[0];
+  _loginTickerTimer = setInterval(() => {
+    el.classList.add('fading');
+    setTimeout(() => {
+      _loginTickerIdx = (_loginTickerIdx + 1) % LOGIN_TICKER_WORDS.length;
+      el.textContent = LOGIN_TICKER_WORDS[_loginTickerIdx];
+      el.classList.remove('fading');
+    }, 320);
+  }, 2400);
+}
 
 // ---- PARTICLES ----
 function createParticles() {

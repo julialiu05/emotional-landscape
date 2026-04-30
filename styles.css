@@ -2379,180 +2379,200 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
   .modal-header h2 { font-size: 36px; }
 }
 
-/* ---- LOGIN — watercolor wash + floating paper form ---- */
+/* ---- LOGIN — deep-sea jellyfish (black + pulsing blue glow) ---- */
 #login-page {
   position: fixed;
   inset: 0;
   z-index: 10000;
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
   background:
-    radial-gradient(ellipse 55% 50% at 12% 18%, rgba(232, 197, 193, 0.7), transparent 60%),
-    radial-gradient(ellipse 50% 45% at 88% 14%, rgba(242, 202, 168, 0.65), transparent 60%),
-    radial-gradient(ellipse 60% 55% at 92% 84%, rgba(197, 188, 224, 0.55), transparent 65%),
-    radial-gradient(ellipse 50% 50% at 8% 88%, rgba(176, 193, 164, 0.5), transparent 65%),
-    var(--paper-0);
+    radial-gradient(ellipse 90% 60% at 50% 100%, #0a1830 0%, #050810 35%, #000 70%),
+    #000;
   transition: opacity 0.6s var(--ease-soft);
-  color: var(--ink);
+  color: #fff;
+  overflow: hidden;
 }
 #login-page::before {
+  /* film grain */
   content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.28;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6 0 0 0 0 0.44 0 0 0 0 0.36 0 0 0 0.28 0'/></filter><rect width='320' height='320' filter='url(%23n)'/></svg>");
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.7 0 0 0 0 1 0 0 0 0.4 0'/></filter><rect width='320' height='320' filter='url(%23n)'/></svg>");
 }
 #login-page.hidden { opacity: 0; pointer-events: none; }
 
-.login-left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 64px 72px;
-  max-width: 540px;
-  background: var(--surface-strong);
-  -webkit-backdrop-filter: blur(30px) saturate(120%);
-  backdrop-filter: blur(30px) saturate(120%);
-  border-right: 1px solid var(--hairline);
-  position: relative;
-  z-index: 1;
-}
-
-.login-right {
-  flex: 1.2;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  padding: 72px 80px;
-  background: transparent;
-  z-index: 1;
-}
-.login-right::before { display: none; }
-.login-right-bg { display: none; }
-
-/* legacy orbs — repurposed as soft watercolor blooms */
-.login-right-orb {
+/* pulsing radial glow stack — rises from the bottom like a deep-sea jellyfish bell */
+.login-glow {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.7;
-  animation: orbDrift 18s var(--ease-breath) infinite;
+  left: 50%;
+  bottom: -25%;
+  transform: translateX(-50%);
   pointer-events: none;
+  z-index: 1;
+  border-radius: 50%;
+  filter: blur(32px);
 }
-.login-right-orb.a {
-  width: 360px; height: 360px;
-  top: 12%; left: 10%;
-  background: radial-gradient(circle, var(--blush-deep), transparent 70%);
+.login-glow-back {
+  width: 140vh;
+  height: 140vh;
+  background: radial-gradient(circle,
+    rgba(80, 150, 255, 0.32) 0%,
+    rgba(50, 110, 220, 0.18) 30%,
+    rgba(30, 70, 170, 0.08) 50%,
+    transparent 70%
+  );
+  animation: jellyBellPulse 5.5s var(--ease-breath) infinite;
 }
-.login-right-orb.b {
-  width: 300px; height: 300px;
-  top: 45%; right: 18%;
-  background: radial-gradient(circle, var(--peach), transparent 70%);
-  animation-delay: -6s;
+.login-glow-mid {
+  width: 80vh;
+  height: 80vh;
+  bottom: -10%;
+  background: radial-gradient(circle,
+    rgba(120, 180, 255, 0.50) 0%,
+    rgba(80, 150, 255, 0.25) 30%,
+    rgba(50, 110, 220, 0.10) 55%,
+    transparent 75%
+  );
+  animation: jellyBellPulse 5.5s var(--ease-breath) infinite;
+  animation-delay: -1.6s;
 }
-.login-right-orb.c {
-  width: 280px; height: 280px;
-  bottom: 20%; left: 35%;
-  background: radial-gradient(circle, var(--lavender), transparent 70%);
-  animation-delay: -12s;
+.login-glow-core {
+  width: 40vh;
+  height: 40vh;
+  bottom: -2%;
+  background: radial-gradient(circle,
+    rgba(200, 230, 255, 0.55) 0%,
+    rgba(140, 200, 255, 0.30) 30%,
+    rgba(80, 150, 255, 0.10) 60%,
+    transparent 80%
+  );
+  filter: blur(20px);
+  animation: jellyBellPulse 5.5s var(--ease-breath) infinite;
+  animation-delay: -3.0s;
 }
-@keyframes orbDrift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -24px) scale(1.08); }
-  66% { transform: translate(-20px, 18px) scale(0.95); }
+@keyframes jellyBellPulse {
+  0%, 100% { transform: translateX(-50%) scale(1);    opacity: 0.85; }
+  50%      { transform: translateX(-50%) scale(1.08); opacity: 1; }
 }
 
-.login-right-quote {
+/* hide the legacy two-column wrappers */
+.login-left, .login-right,
+.login-right-orb, .login-right-quote { display: none !important; }
+
+/* centered single column */
+.login-stage {
   position: relative;
-  max-width: 620px;
-  color: var(--ink);
-  font-family: var(--font-serif);
-  font-size: 58px;
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.025em;
   z-index: 2;
-}
-.login-right-quote em { font-style: italic; color: var(--accent-deep); }
-.login-right-quote span {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  margin-top: 36px;
-  color: var(--muted);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+  text-align: center;
+  color: #fff;
 }
 
 .login-brand {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
-  color: var(--ink);
-  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  margin-bottom: 72px;
-  display: flex;
+  margin-bottom: 56px;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  justify-content: center;
 }
 .login-brand::before {
   content: '';
-  width: 8px; height: 8px;
+  width: 7px; height: 7px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
-  animation: pulse 4.5s var(--ease-breath) infinite;
+  background: #7eb6ff;
+  box-shadow: 0 0 14px rgba(126, 182, 255, 0.85);
+  animation: brandDot 3.8s var(--ease-breath) infinite;
+}
+@keyframes brandDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.8); }
 }
 
 .login-heading {
   font-family: var(--font-serif);
-  font-size: 74px;
+  font-size: 60px;
   font-weight: 400;
-  color: var(--ink);
-  letter-spacing: -0.03em;
+  color: #fff;
+  letter-spacing: -0.025em;
   line-height: 0.98;
-  margin-bottom: 22px;
+  margin: 0 0 16px;
 }
 .login-heading em {
   font-style: italic;
-  color: var(--accent-deep);
+  color: #7eb6ff;
+  text-shadow: 0 0 28px rgba(126, 182, 255, 0.55);
 }
 .login-sub {
-  font-family: var(--font-serif);
-  font-size: 21px;
+  font-family: var(--font-serif-soft);
+  font-size: 17px;
   font-style: italic;
-  color: var(--ink-soft);
-  margin-bottom: 44px;
+  color: rgba(255, 255, 255, 0.62);
+  margin: 0 auto 24px;
   letter-spacing: -0.005em;
   line-height: 1.45;
-  max-width: 440px;
+  max-width: 360px;
 }
 
-/* segmented control — cream pill */
+/* emotion word ticker */
+.login-ticker {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: -0.005em;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 36px;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+}
+.login-ticker-prefix { font-weight: 400; }
+.login-ticker-word {
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0;
+  min-width: 76px;
+  text-align: left;
+  transition: opacity 0.32s var(--ease-soft), transform 0.32s var(--ease-soft);
+  text-shadow: 0 0 22px rgba(126, 182, 255, 0.7);
+}
+.login-ticker-word.fading {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* segmented control — dark glass pill */
 .segmented {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: var(--surface-soft);
-  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 999px;
   padding: 3px;
-  margin-bottom: 28px;
+  margin-bottom: 22px;
   position: relative;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .segmented-option {
   padding: 9px 12px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   text-align: center;
   cursor: pointer;
   user-select: none;
@@ -2561,12 +2581,12 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
   position: relative;
   z-index: 1;
 }
-.segmented-option:hover { color: var(--ink); }
+.segmented-option:hover { color: #fff; }
 .segmented-option.active {
-  background: var(--accent);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.92);
+  color: #050810;
   font-weight: 600;
-  box-shadow: 0 0 16px var(--accent-glow);
+  box-shadow: 0 0 22px rgba(126, 182, 255, 0.4);
 }
 
 .toggle-container, .mode-label,
@@ -2575,12 +2595,13 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
 .login-form { display: flex; flex-direction: column; gap: 0; }
 
 .login-input-stack {
-  background: var(--surface-soft);
-  border: 1px solid var(--hairline);
-  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: none;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .input-group {
   text-align: left;
@@ -2588,14 +2609,14 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
   align-items: center;
   padding: 0 18px;
 }
-.input-group + .input-group { border-top: 1px solid var(--hairline); }
+.input-group + .input-group { border-top: 1px solid rgba(255, 255, 255, 0.08); }
 .input-group label {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.45);
   width: 86px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -2607,10 +2628,10 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
   font-size: 15px;
   outline: none;
   background: transparent;
-  color: var(--ink);
+  color: #fff;
   letter-spacing: -0.005em;
 }
-.login-input::placeholder { color: var(--faint); font-style: italic; font-family: var(--font-serif); }
+.login-input::placeholder { color: rgba(255, 255, 255, 0.32); font-style: italic; font-family: var(--font-serif-soft); }
 
 .login-btn {
   width: 100%;
@@ -2618,70 +2639,77 @@ textarea:focus { border-color: var(--accent); background: var(--surface-strong);
   border: none;
   border-radius: 999px;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  color: #fff;
-  letter-spacing: 0.02em;
+  color: #051026;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  background: var(--accent);
-  box-shadow: 0 8px 24px -8px var(--accent-glow), 0 0 28px var(--accent-glow);
-  transition: background 0.25s var(--ease-soft), transform 0.12s, box-shadow 0.25s;
+  background: linear-gradient(180deg, #b9d8ff 0%, #7eb6ff 100%);
+  box-shadow:
+    0 0 32px rgba(126, 182, 255, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+    0 12px 28px -12px rgba(80, 150, 255, 0.6);
+  transition: filter 0.25s var(--ease-soft), transform 0.12s, box-shadow 0.25s;
   margin-top: 4px;
 }
-.login-btn:hover { background: var(--accent-deep); box-shadow: 0 10px 30px -8px var(--accent-glow), 0 0 36px var(--accent-glow); }
+.login-btn:hover {
+  filter: brightness(1.08);
+  box-shadow:
+    0 0 44px rgba(126, 182, 255, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+    0 14px 32px -12px rgba(80, 150, 255, 0.7);
+}
 .login-btn:active { transform: scale(0.985); }
 
 .login-skip {
   width: 100%;
   margin-top: 8px;
-  padding: 13px;
+  padding: 12px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.45);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: -0.005em;
+  letter-spacing: 0.04em;
   cursor: pointer;
   border-radius: 999px;
   transition: color 0.25s var(--ease-soft), background 0.25s var(--ease-soft), border-color 0.25s;
 }
-.login-skip:hover { color: var(--ink); background: var(--surface-warm); border-color: var(--hairline); }
+.login-skip:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
 
 .login-error {
   font-size: 12px;
-  color: var(--red);
+  color: #ff8b8b;
   min-height: 18px;
   margin: 6px 2px;
   letter-spacing: -0.005em;
 }
 
 .login-footer {
-  margin-top: 28px;
-  font-size: 13px;
-  color: var(--muted);
+  margin-top: 26px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
   text-align: center;
   letter-spacing: -0.005em;
 }
 .login-footer a {
-  color: var(--accent-deep);
+  color: #7eb6ff;
   text-decoration: underline;
-  text-decoration-color: var(--accent-soft);
+  text-decoration-color: rgba(126, 182, 255, 0.4);
   text-underline-offset: 3px;
   cursor: pointer;
   font-weight: 500;
-  transition: text-decoration-color 0.25s var(--ease-soft);
+  transition: text-decoration-color 0.25s var(--ease-soft), color 0.25s;
 }
-.login-footer a:hover { text-decoration-color: var(--accent-deep); }
+.login-footer a:hover { color: #b9d8ff; text-decoration-color: #b9d8ff; }
 
-@media (max-width: 900px) {
-  .login-right { display: none; }
-  .login-left {
-    max-width: 100%;
-    padding: 48px 32px;
-    border-right: none;
-  }
-  .login-heading { font-size: 52px; }
-  .login-right-quote { font-size: 38px; }
+@media (max-width: 700px) {
+  .login-stage { padding: 32px 24px; }
+  .login-heading { font-size: 46px; }
 }

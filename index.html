@@ -17,11 +17,20 @@
 
 <!-- LOGIN PAGE -->
 <div id="login-page">
-  <div class="login-left">
+  <div class="login-glow login-glow-back" aria-hidden="true"></div>
+  <div class="login-glow login-glow-mid" aria-hidden="true"></div>
+  <div class="login-glow login-glow-core" aria-hidden="true"></div>
+
+  <div class="login-stage">
     <div class="login-brand">Emotional Landscape</div>
 
-    <div class="login-heading" id="login-heading">Welcome <em>back</em>.</div>
-    <div class="login-sub" id="login-sub">Map how the places you move through make you feel.</div>
+    <h1 class="login-heading" id="login-heading">Welcome <em>back</em>.</h1>
+    <p class="login-sub" id="login-sub">Map how the places you move through make you feel.</p>
+
+    <div class="login-ticker">
+      <span class="login-ticker-prefix">map your</span>
+      <span class="login-ticker-word" id="login-ticker-word">joy</span>
+    </div>
 
     <div class="segmented" role="tablist">
       <div class="segmented-option active" id="seg-login" onclick="setLever(false)">Log in</div>
@@ -44,21 +53,12 @@
         </div>
       </div>
       <div class="login-error" id="login-error"></div>
-      <button class="login-btn" id="login-btn" onclick="handleAuth()">Log in</button>
+      <button class="login-btn" id="login-btn" onclick="handleAuth()">Enter</button>
       <button class="login-skip" onclick="skipLogin()">Skip for now</button>
     </div>
 
     <div class="login-footer">
       <span id="login-footer-text">No account yet? <a onclick="setLever(true)">Sign up</a></span>
-    </div>
-  </div>
-  <div class="login-right">
-    <div class="login-right-orb a"></div>
-    <div class="login-right-orb b"></div>
-    <div class="login-right-orb c"></div>
-    <div class="login-right-quote">
-      The places we move through <em>shape</em> how we feel, and how we feel <em>colors</em> the places we remember.
-      <span>A note from the observer</span>
     </div>
   </div>
 </div>
