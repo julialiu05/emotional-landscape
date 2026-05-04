@@ -16,8 +16,7 @@ svg { display: block; }
    ============================================================= */
 
 :root {
-  /* type */
-  --font-display: "Instrument Serif", "DM Serif Display", "New York", serif;
+  /* type — single sans family for everything */
   --font-ui: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
@@ -190,19 +189,19 @@ body::before {
   color: var(--muted);
 }
 .display-xl {
-  font-family: var(--font-display);
-  font-weight: 400;
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: clamp(40px, 6vw, 64px);
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--ink);
 }
 .display-lg {
-  font-family: var(--font-display);
-  font-weight: 400;
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: 32px;
   line-height: 1.1;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
   color: var(--ink);
 }
 .text-sm  { font-size: 13px; color: var(--ink-soft); }
@@ -441,8 +440,10 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
   border-radius: var(--r-pill);
   background: var(--accent);
   color: var(--accent-on);
-  font-family: var(--font-display);
-  font-size: 17px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
@@ -547,11 +548,12 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
   gap: 2px;
 }
 .rail-stat .v {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: 26px;
   line-height: 1;
   color: var(--ink);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
 }
 .rail-stat .k {
   font-family: var(--font-mono);
@@ -561,14 +563,13 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
   color: var(--muted);
 }
 .rail-mood {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.45;
   color: var(--ink-soft);
 }
 .rail-mood strong {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-style: normal;
   color: var(--ink);
   font-weight: 400;
@@ -797,8 +798,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 .jdm-jelly {
   align-self: flex-start;
   color: var(--ink);
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.45;
 }
@@ -944,8 +944,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   margin-bottom: 2px;
 }
 .wc-message .emo-label {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 16px;
   color: var(--ink);
 }
@@ -960,8 +959,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   color: var(--faint);
 }
 .wc-empty {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--muted);
   text-align: center;
@@ -978,8 +976,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-dock);
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--ink-soft);
   background: var(--surface-strong);
@@ -1037,16 +1034,16 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 .dash-header > div:first-child::before {
   content: 'Insights';
   display: block;
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: clamp(40px, 5.5vw, 56px);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--ink);
   margin-bottom: 6px;
 }
 .dash-header p {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 17px;
   color: var(--muted);
   line-height: 1.45;
@@ -1115,16 +1112,16 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   color: var(--muted);
 }
 .stat-card .stat-value {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: 48px;
   line-height: 1;
   color: var(--ink);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   margin-top: var(--s-2);
 }
 .stat-card .stat-sub {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--muted);
   margin-top: var(--s-2);
@@ -1145,17 +1142,16 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   50%      { transform: scale(1.04); }
 }
 .mood-name {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: 32px;
   line-height: 1.05;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
   color: var(--ink);
   margin-top: var(--s-2);
 }
 .mood-desc {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 15px;
   color: var(--muted);
   line-height: 1.45;
@@ -1175,8 +1171,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   gap: var(--s-3);
 }
 .bar-label {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--ink);
 }
@@ -1232,8 +1227,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   text-transform: uppercase;
 }
 .timeline-content .place {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 15px;
   color: var(--ink);
   margin-top: 2px;
@@ -1245,8 +1239,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   line-height: 1.4;
 }
 .timeline .empty {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--muted);
   padding: var(--s-6);
@@ -1287,17 +1280,16 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   color: var(--muted);
 }
 .chat-hero h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-size: clamp(40px, 5.5vw, 56px);
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--ink);
   margin: 0;
 }
 .chat-hero p {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 17px;
   color: var(--muted);
   line-height: 1.45;
@@ -1375,8 +1367,10 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   background: var(--user-hue, var(--accent));
   color: var(--accent-on);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display);
-  font-size: 14px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0;
   flex-shrink: 0;
 }
 .chat-msg-body { flex: 1; min-width: 0; }
@@ -1388,7 +1382,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   margin-bottom: 4px;
 }
 .chat-username {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-size: 16px;
   color: var(--ink);
 }
@@ -1407,8 +1401,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   margin-left: auto;
 }
 .chat-msg-place {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--ink-soft);
 }
@@ -1431,14 +1424,15 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   padding: var(--s-12) var(--s-4);
 }
 .chat-empty h3 {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: 26px;
+  letter-spacing: -0.02em;
   color: var(--ink);
   margin-bottom: var(--s-2);
 }
 .chat-empty p {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   color: var(--muted);
 }
 
@@ -1521,17 +1515,16 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   padding: var(--s-6) var(--s-6) 0;
 }
 .modal-header h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-size: 32px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.05;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
   color: var(--ink);
 }
 .modal-header h2 em { font-style: italic; color: var(--accent); }
 .modal-header p {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--muted);
   margin-top: var(--s-2);
@@ -1571,8 +1564,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   gap: var(--s-3);
 }
 .log-pad-emotion {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 22px;
   color: var(--ink);
   letter-spacing: -0.01em;
@@ -1612,8 +1604,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 .log-pad-anchors { position: absolute; inset: 0; pointer-events: none; }
 .log-pad-anchor {
   position: absolute;
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--ink-soft);
   transform: translate(-50%, -50%);
@@ -1765,18 +1756,17 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 
 .affect-header { margin-bottom: var(--s-6); }
 .affect-header h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-size: 38px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--ink);
   margin-bottom: var(--s-2);
 }
 .affect-header h2 em { font-style: italic; color: var(--accent); }
 .affect-header p {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 15px;
   color: var(--muted);
   line-height: 1.45;
@@ -1814,8 +1804,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 
 .affect-quadrant-label {
   position: absolute;
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 16px;
   color: var(--ink);
   opacity: 0.45;
@@ -1932,11 +1921,11 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   color: var(--muted);
 }
 .login-tagline {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-size: clamp(34px, 5vw, 44px);
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--ink);
   margin: 0;
 }
@@ -2027,8 +2016,7 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 .login-skip:hover { color: var(--ink); }
 
 .login-sub {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--muted);
   text-align: center;
