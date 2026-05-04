@@ -6,12 +6,30 @@
   <title>Emotional Landscape</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // theme — set early to avoid flash
+    (function () {
+      var saved = localStorage.getItem('el-theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'light';
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('el-theme', next);
+    }
+    function toggleFeed() {
+      var d = document.getElementById('world-chat');
+      if (d) d.classList.toggle('open');
+    }
+  </script>
 </head>
 <body>
 
@@ -23,7 +41,6 @@
 
   <div class="login-stage">
     <div class="login-brand">Emotional Landscape</div>
-
     <h1 class="login-tagline" id="login-heading">Map how the places <em>you move through</em> make you feel.</h1>
 
     <div class="segmented" role="tablist">
@@ -57,10 +74,10 @@
   </div>
 </div>
 
-<!-- Particles (unused — left for CSS compatibility) -->
+<!-- legacy holder -->
 <div id="particles"></div>
 
-<!-- Top nav bar — tab switcher + avatar -->
+<!-- TOP NAV -->
 <div class="nav-bar" id="nav-bar">
   <div class="nav-bar-tabs" role="tablist">
     <button class="nav-tab active" data-view="map" onclick="switchView('map')">Map</button>
@@ -68,33 +85,28 @@
     <button class="nav-tab" data-view="journal" onclick="switchView('journal')">Messages</button>
   </div>
   <div class="nav-bar-trailing">
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
+      </svg>
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </button>
     <div class="nav-bar-profile" id="nav-profile" onclick="toggleProfileMenu()">A</div>
   </div>
   <span class="nav-bar-title" id="nav-bar-title" hidden>Map</span>
 </div>
 
-<!-- Bottom tab bar (kept hidden — switchView still references .tab-item active state) -->
+<!-- legacy bottom tab bar (hidden, JS still toggles its active state) -->
 <div class="tab-bar" hidden>
   <button class="tab-item active" data-view="map" onclick="switchView('map')"><span class="tab-item-label">Map</span></button>
   <button class="tab-item" data-view="dashboard" onclick="switchView('dashboard')"><span class="tab-item-label">Insights</span></button>
   <button class="tab-item" data-view="journal" onclick="switchView('journal')"><span class="tab-item-label">Messages</span></button>
 </div>
 
-<!-- Jellyfish chat dock — primary bottom interaction -->
-<div class="jelly-dock" id="jelly-dock">
-  <div class="jelly-dock-feed" id="jelly-dock-feed"></div>
-  <form class="jelly-dock-input-wrap" onsubmit="event.preventDefault(); sendDockToJelly();">
-    <span class="jelly-dock-glow" aria-hidden="true"></span>
-    <input type="text" id="jelly-dock-input" placeholder="ask the jellyfish anything..." autocomplete="off">
-    <button type="submit" class="jelly-dock-send" aria-label="Send to jellyfish">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M5 12 L19 12 M12 5 L19 12 L12 19"/>
-      </svg>
-    </button>
-  </form>
-</div>
-
-<!-- Hidden legacy sidebar (kept so updateSidebarStats can still query ids) -->
+<!-- legacy hidden sidebar (JS still queries IDs) -->
 <aside class="sidebar" style="display:none;">
   <div class="sidebar-avatar" id="side-avatar">—</div>
   <div class="sidebar-user-name" id="side-name">Guest</div>
@@ -103,95 +115,103 @@
   <span id="side-top">—</span>
 </aside>
 
-<!-- MAP VIEW -->
+<!-- ===================== MAP VIEW ===================== -->
 <div id="map-view" class="view active">
   <div id="map"></div>
 
-  <div class="map-info-panel" id="map-info-panel">
-    <div class="map-info-title">
-      <span class="led"></span>
-      <span>Activity</span>
+  <!-- LEFT RAIL: activity + controls -->
+  <aside class="map-rail">
+    <div class="rail-card">
+      <div class="rail-section">
+        <span class="eyebrow">Activity</span>
+        <div class="rail-stats">
+          <div class="rail-stat"><span class="v" id="info-today">0</span><span class="k">today</span></div>
+          <div class="rail-stat"><span class="v" id="info-week">0</span><span class="k">week</span></div>
+          <div class="rail-stat"><span class="v" id="info-total">0</span><span class="k">total</span></div>
+        </div>
+        <div class="rail-mood" id="info-mood">Drag the pin or tap the map to log a feeling.</div>
+      </div>
+      <div class="rail-section">
+        <div class="rail-controls">
+          <button class="nearby-fab" id="nearby-fab" onclick="showNearby()">Nearby check-ins</button>
+          <button class="gps-toggle" id="gps-toggle" onclick="toggleGps()" aria-label="Toggle GPS">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <span class="gps-knob"></span>
+              <span class="gps-text">GPS off</span>
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="map-info-stats">
-      <div class="map-info-stat">
-        <span class="v" id="info-today">0</span>
-        <span class="k">today</span>
-      </div>
-      <div class="map-info-stat">
-        <span class="v" id="info-week">0</span>
-        <span class="k">this week</span>
-      </div>
-      <div class="map-info-stat">
-        <span class="v" id="info-total">0</span>
-        <span class="k">all time</span>
-      </div>
-    </div>
-    <div class="map-info-mood" id="info-mood">Tap the map or drop the pin to log a feeling.</div>
-  </div>
+  </aside>
 
-  <div class="map-instructions" id="map-hint">Tap the map or drop the pin to log a feeling</div>
-
-  <div class="dropper-dock">
-    <div class="dropper" id="dropper" title="Drag and drop to log a feeling">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- BOTTOM DOCK: dropper + jellyfish chat -->
+  <div class="dock">
+    <button class="dock-dropper" id="dropper" title="Drag onto the map to log a feeling">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
         <circle cx="12" cy="10" r="3" fill="currentColor"/>
       </svg>
-    </div>
-    <div class="dropper-label">Drop to log</div>
-    <button class="gps-toggle" id="gps-toggle" onclick="toggleGps()" aria-label="Toggle GPS">
-      <span class="gps-knob"></span>
-      <span class="gps-text">GPS OFF</span>
+      <span>Drop to log</span>
     </button>
+    <form class="dock-chat" onsubmit="event.preventDefault(); sendDockToJelly();">
+      <input type="text" id="jelly-dock-input" placeholder="ask the jellyfish anything..." autocomplete="off">
+      <button type="submit" class="dock-send" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12 L19 12 M12 5 L19 12 L12 19"/>
+        </svg>
+      </button>
+    </form>
   </div>
 
-  <button class="nearby-fab" id="nearby-fab" onclick="showNearby()" aria-label="Show nearby">
-    <span>NEARBY</span>
+  <!-- floating jellyfish chat messages above the dock -->
+  <div class="dock-feed" id="jelly-dock-feed"></div>
+
+  <!-- RIGHT EDGE: pull-out world feed -->
+  <button class="feed-handle" onclick="toggleFeed()" aria-label="Open live world feed">
+    <span class="feed-handle-pulse"></span>
+    <span class="feed-handle-label">Live feed</span>
+    <span class="feed-handle-count" id="wc-count">0</span>
   </button>
+  <aside class="feed-drawer" id="world-chat">
+    <div class="feed-drawer-head">
+      <span class="eyebrow">Live feed</span>
+      <button class="btn-icon" onclick="toggleFeed()" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+      </button>
+    </div>
+    <div class="feed-drawer-list" id="world-chat-feed"></div>
+  </aside>
 
-  <!-- Jellyfish chat panel -->
-  <div class="jelly-chat" id="jelly-chat">
-    <button class="jelly-chat-toggle" id="jelly-chat-toggle" onclick="toggleJellyChat()" aria-label="Talk to the jellyfish">
-      <span class="jelly-chat-toggle-dot"></span>
-      <span class="jelly-chat-toggle-label">JELLY</span>
-    </button>
+  <!-- transient hint (shown by showMapHint) -->
+  <div class="map-instructions" id="map-hint">Drag the pin to the map to log a feeling</div>
+
+  <!-- legacy hidden DOM nodes (JS still references their IDs) -->
+  <div class="map-info-panel" id="map-info-panel" hidden>
+    <div class="map-info-title"><span class="led"></span><span>Activity</span></div>
+    <div class="map-info-stats">
+      <div class="map-info-stat"></div>
+      <div class="map-info-stat"></div>
+      <div class="map-info-stat"></div>
+    </div>
+  </div>
+  <div class="dropper-dock" hidden></div>
+  <div class="jelly-chat" id="jelly-chat" hidden>
+    <button class="jelly-chat-toggle" id="jelly-chat-toggle" aria-hidden="true"></button>
     <div class="jelly-chat-panel" id="jelly-chat-panel">
-      <div class="jelly-chat-header">
-        <span class="jelly-chat-eyebrow">your jellyfish</span>
-        <button class="jelly-chat-close" onclick="toggleJellyChat()" aria-label="Close">×</button>
-      </div>
       <div class="jelly-chat-log" id="jelly-chat-log"></div>
-      <div class="jelly-chat-composer">
-        <input id="jelly-chat-input" placeholder="say something to the jellyfish..." onkeydown="if(event.key==='Enter') sendToJelly()">
-        <button class="jelly-chat-send" onclick="sendToJelly()">send</button>
-      </div>
+      <input id="jelly-chat-input" hidden>
     </div>
   </div>
-
-  <!-- Jellyfish control hint -->
-  <div class="jelly-hint" id="jelly-hint">
-    <span class="keycap">W</span><span class="keycap">A</span><span class="keycap">S</span><span class="keycap">D</span>
-    <span class="jelly-hint-text">· drift your jellyfish</span>
-  </div>
-
-  <!-- Live world feed -->
-  <div class="world-chat" id="world-chat">
-    <div class="world-chat-header">
-      <span class="wc-dot"></span>
-      <span class="wc-title">Live Feed</span>
-      <span class="wc-count" id="wc-count">0</span>
-    </div>
-    <div class="world-chat-feed" id="world-chat-feed"></div>
-  </div>
-
+  <div class="jelly-hint" id="jelly-hint" hidden></div>
   <div class="drop-reticle" id="drop-reticle"></div>
 </div>
 
-<!-- DASHBOARD VIEW -->
+<!-- ===================== DASHBOARD VIEW ===================== -->
 <div id="dashboard-view" class="view">
   <div class="dash-header">
     <div>
-      <p>A living portrait across Berkeley</p>
+      <p>A living portrait across Berkeley.</p>
     </div>
     <div class="dash-header-meta">
       <span class="date" id="dash-date"></span>
@@ -210,13 +230,13 @@
     </div>
     <div class="stat-card bento-stat" id="stat-intensity">
       <div class="stat-label">Avg Intensity</div>
-      <div class="stat-value">&mdash;</div>
+      <div class="stat-value">—</div>
       <div class="stat-sub">out of 10</div>
     </div>
     <div class="mood-card bento-mood" id="mood-card">
       <h3>Prevailing Mood</h3>
       <div class="mood-orb" id="mood-orb"></div>
-      <div class="mood-name" id="mood-name">&mdash;</div>
+      <div class="mood-name" id="mood-name">—</div>
       <div class="mood-desc" id="mood-desc">No data yet</div>
     </div>
     <div class="stat-card bento-stat" id="stat-days">
@@ -235,30 +255,13 @@
   </div>
 </div>
 
-<!-- MESSAGES VIEW (world chat with terrain hero) -->
+<!-- ===================== MESSAGES VIEW ===================== -->
 <div id="journal-view" class="view">
   <div class="chat-hero">
-    <svg class="chat-hero-silhouette" viewBox="0 0 1200 240" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="hero-sky" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0"   stop-color="#2a1d4a"/>
-          <stop offset="0.35" stop-color="#6d4272"/>
-          <stop offset="0.65" stop-color="#d47e6e"/>
-          <stop offset="0.88" stop-color="#f2c79a"/>
-          <stop offset="1"   stop-color="#fbf6ed"/>
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="240" fill="url(#hero-sky)"/>
-      <circle cx="880" cy="74" r="36" fill="rgba(255,240,200,0.85)"/>
-      <circle cx="880" cy="74" r="72" fill="rgba(255,220,160,0.16)"/>
-      <path d="M0 180 L140 118 L260 158 L400 108 L540 156 L680 104 L820 148 L960 108 L1100 142 L1200 116 L1200 240 L0 240 Z" fill="rgba(109, 66, 114, 0.82)"/>
-      <path d="M0 210 L100 156 L220 202 L360 140 L500 196 L640 148 L780 204 L920 146 L1060 198 L1200 168 L1200 240 L0 240 Z" fill="rgba(212, 126, 110, 0.85)"/>
-      <path d="M0 232 L90 200 L210 226 L340 188 L480 220 L640 184 L780 224 L920 192 L1060 222 L1200 204 L1200 240 L0 240 Z" fill="rgba(176, 103, 92, 0.92)"/>
-    </svg>
     <div class="chat-hero-text">
-      <div class="chat-hero-eyebrow">World Chat</div>
+      <div class="chat-hero-eyebrow">Live across the landscape</div>
       <h1>Messages</h1>
-      <p>Feelings logged, live, across the landscape.</p>
+      <p>Feelings logged, in this moment, by everyone.</p>
     </div>
   </div>
 
@@ -270,17 +273,17 @@
     </div>
     <div class="chat-list" id="chat-list"></div>
     <div class="chat-composer">
-      <input type="text" id="chat-input" placeholder="Share how you're feeling..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+      <input type="text" id="chat-input" placeholder="Share how you're feeling…" onkeydown="if(event.key==='Enter') sendChatMessage()">
       <button class="chat-send" onclick="sendChatMessage()">Send</button>
     </div>
   </div>
 </div>
 
-<!-- QUESTIONNAIRE MODAL -->
+<!-- ===================== LOG MODAL ===================== -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-header">
-      <h2>How are you feeling?</h2>
+      <h2>How are you <em>feeling</em>?</h2>
       <p id="modal-location-label">Logging at this spot in Berkeley</p>
     </div>
     <div class="modal-body">
@@ -299,8 +302,8 @@
         </div>
       </div>
       <div class="question-group">
-        <label>What's on your mind? (optional)</label>
-        <textarea id="journal-note" placeholder="A thought, a moment, anything you want to remember..."></textarea>
+        <label>What's on your mind?</label>
+        <textarea id="journal-note" placeholder="A thought, a moment, anything you want to remember…"></textarea>
       </div>
       <div class="question-group">
         <label>What brought this on?</label>
@@ -321,7 +324,7 @@
   </div>
 </div>
 
-<!-- AFFECT ONBOARDING (Circumplex: valence × arousal) -->
+<!-- ===================== AFFECT ONBOARDING ===================== -->
 <div class="affect-overlay" id="affect-overlay">
   <div class="affect-panel">
     <div class="affect-header">
