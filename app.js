@@ -964,20 +964,41 @@ function renderWorldChat() {
   const feed = document.getElementById('world-chat-feed');
   const count = document.getElementById('wc-count');
   if (!feed) return;
-  if (count) count.textContent = entries.length;
 
-  if (entries.length === 0) {
+  // merge community feed (server) with this user's local entries that haven't synced yet
+  const fromServer = (_serverEntries || []).map(e => ({
+    id: e.id,
+    lat: +e.lat,
+    lng: +e.lng,
+    emotion: e.emotion,
+    placeName: e.placeName || '',
+    timestamp: e.timestamp
+  }));
+  const fromLocal = entries.map(e => ({
+    id: e.id,
+    lat: e.lat,
+    lng: e.lng,
+    emotion: (e.emotions || [])[0] || 'joy',
+    placeName: e.placeName || '',
+    timestamp: e.timestamp
+  }));
+  const merged = [...fromServer, ...fromLocal]
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .slice(0, 24);
+
+  if (count) count.textContent = (_serverEntries || []).length || entries.length;
+
+  if (merged.length === 0) {
     feed.innerHTML = `<div class="wc-empty">No check-ins yet. Drop the pin to begin.</div>`;
     return;
   }
 
-  const recent = [...entries].reverse().slice(0, 24);
-  feed.innerHTML = recent.map(e => {
-    const em = EMOTION_MAP[e.emotions && e.emotions[0]] || EMOTIONS[0];
+  feed.innerHTML = merged.map(e => {
+    const em = EMOTION_MAP[e.emotion] || EMOTIONS[0];
     const place = e.placeName ? e.placeName : `${e.lat.toFixed(3)}, ${e.lng.toFixed(3)}`;
     const coords = `${e.lat.toFixed(4)}, ${e.lng.toFixed(4)}`;
     return `
-      <div class="wc-message" data-id="${e.id}" style="--m-color:${em.color};">
+      <div class="wc-message" data-lat="${e.lat}" data-lng="${e.lng}" style="--m-color:${em.color};">
         <span class="emo-dot"></span>
         <div class="body">
           <div class="line">
@@ -991,9 +1012,11 @@ function renderWorldChat() {
 
   feed.querySelectorAll('.wc-message').forEach(el => {
     el.addEventListener('click', () => {
-      const id = parseInt(el.dataset.id, 10);
-      const entry = entries.find(x => x.id === id);
-      if (entry && map) map.flyTo({ center: [entry.lng, entry.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
+      const lat = parseFloat(el.dataset.lat);
+      const lng = parseFloat(el.dataset.lng);
+      if (!isNaN(lat) && !isNaN(lng) && map) {
+        map.flyTo({ center: [lng, lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 });
+      }
     });
   });
 }
@@ -1576,10 +1599,27 @@ function submitEntry() {
   localStorage.setItem('el_entries', JSON.stringify(entries));
   addMarker(entry);
   refreshFeelingsSource();
+
+  // share to community feed
+  const me = getOrCreateUserIdentity();
+  postServerEntry({
+    lat: entry.lat,
+    lng: entry.lng,
+    emotion: entry.emotions[0],
+    intensity: entry.intensity,
+    valence: entry.valence,
+    arousal: entry.arousal,
+    note: entry.note,
+    placeName: entry.placeName || '',
+    userName: me.name,
+    hue: me.hue
+  }).then(() => {
+    if (document.getElementById('chat-list')) renderChat();
+  });
+
   renderWorldChat();
   if (document.getElementById('chat-list')) renderChat();
   closeModal();
-  // jelly proactively reacts to the just-logged feeling — surfaces in the bottom dock
   setTimeout(() => dockProactiveReply('[just_logged]', { placeNow: entry.placeName || null }), 800);
   document.getElementById('map-hint').style.opacity = '0';
   updateSidebarStats();
@@ -1608,7 +1648,10 @@ function switchView(name) {
 
   if (name === 'map') { setTimeout(() => map.resize(), 100); updateMapInfo(); }
   if (name === 'dashboard') renderDashboard();
-  if (name === 'journal') renderChat();
+  if (name === 'journal') {
+    renderChat();                           // paint cached/local immediately
+    fetchServerEntries().then(renderChat);  // refresh from server, repaint
+  }
   updateSidebarStats();
 }
 
@@ -1986,41 +2029,80 @@ const SEED_CHAT = [
   { userId: 'sol',  emotion: 'anxiety', place: 'Wheeler Hall',        lat: 37.8712, lng: -122.2593, note: 'econ final... pray for me',      minsAgo: 2210 },
 ];
 
-// session-only extra messages the user "posts" via the composer
+// session-only extra messages the user "posts" via the composer (optimistic)
 let _chatSessionExtras = [];
 let chatFilter = 'all';
+// server-fetched community entries — populated by fetchServerEntries()
+let _serverEntries = [];
 
 function initialsOf(name) {
   return name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase();
 }
 
+// anonymous-but-stable identity per browser, stored in localStorage
+const _ANON_ADJ = ['Quiet', 'Soft', 'Bright', 'Drift', 'Calm', 'Wild', 'Far', 'Slow', 'Warm', 'Pale', 'Deep', 'Tide'];
+const _ANON_NOUN = ['Jellyfish', 'Otter', 'Heron', 'Fox', 'Moth', 'Crane', 'Wren', 'Hare', 'Lark', 'Owl', 'Dolphin', 'Fern'];
+const _ANON_HUES = ['#7ee5d4', '#a8b5d6', '#c89a8e', '#a89c82', '#d4a5e8', '#86a8a0', '#e8a08d', '#8a92b8'];
+function getOrCreateUserIdentity() {
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem('el_user') || 'null'); } catch (_) { stored = null; }
+  if (!stored || !stored.name || !stored.hue) {
+    const name = _ANON_ADJ[Math.floor(Math.random() * _ANON_ADJ.length)] + ' ' +
+                 _ANON_NOUN[Math.floor(Math.random() * _ANON_NOUN.length)];
+    const hue = _ANON_HUES[Math.floor(Math.random() * _ANON_HUES.length)];
+    stored = { name, hue };
+    try { localStorage.setItem('el_user', JSON.stringify(stored)); } catch (_) {}
+  }
+  return stored;
+}
+
+async function fetchServerEntries() {
+  try {
+    const res = await fetch('/api/entries');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.entries)) {
+      _serverEntries = data.entries;
+      // refresh anywhere that consumes the community feed
+      if (document.getElementById('world-chat-feed')) renderWorldChat();
+      if (document.getElementById('chat-list')) renderChat();
+    }
+  } catch (_) { /* offline — keep last cache */ }
+}
+
+async function postServerEntry(payload) {
+  try {
+    const res = await fetch('/api/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.entry) {
+      _serverEntries.unshift(data.entry);
+      return data.entry;
+    }
+  } catch (_) {}
+  return null;
+}
+
 function buildChatFeed() {
-  const now = Date.now();
-  const seeded = SEED_CHAT.map((m, i) => ({
-    id: 'seed-' + i,
-    kind: 'other',
-    userId: m.userId,
-    userName: CHAT_USER_MAP[m.userId].name,
-    hue: CHAT_USER_MAP[m.userId].hue,
-    emotion: m.emotion,
-    place: m.place,
-    lat: m.lat, lng: m.lng,
-    note: m.note,
-    timestamp: new Date(now - m.minsAgo * 60 * 1000).toISOString()
-  }));
-  const mine = entries.map(e => ({
-    id: 'mine-' + e.id,
-    kind: 'self',
-    userId: 'you',
-    userName: 'You',
-    hue: '#1f1e1c',
-    emotion: (e.emotions || [])[0] || 'joy',
-    place: e.placeName || `${e.lat.toFixed(3)}, ${e.lng.toFixed(3)}`,
-    lat: e.lat, lng: e.lng,
+  const me = getOrCreateUserIdentity();
+  // server entries are now the source of truth for community
+  const community = _serverEntries.map(e => ({
+    id: e.id,
+    kind: e.userName === me.name ? 'self' : 'other',
+    userId: e.userName,
+    userName: e.userName || 'Anon',
+    hue: e.hue || '#7ee5d4',
+    emotion: e.emotion,
+    place: e.placeName || `${(+e.lat).toFixed(3)}, ${(+e.lng).toFixed(3)}`,
+    lat: +e.lat, lng: +e.lng,
     note: e.note || '',
     timestamp: e.timestamp
   }));
-  return [...seeded, ..._chatSessionExtras, ...mine]
+  return [...community, ..._chatSessionExtras]
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
@@ -2084,19 +2166,19 @@ function sendChatMessage() {
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
-  // derive a mood: use current affect if set, else joy
   const emotion = affectState
     ? nearestEmotion(affectState.valence, affectState.arousal).id
     : 'joy';
-  // use current map center as "place"
   const center = map && map.getCenter ? map.getCenter() : { lat: 37.8716, lng: -122.2727 };
   const place = (map && findPlaceName(center.lng, center.lat)) || 'somewhere on campus';
+  const me = getOrCreateUserIdentity();
+  // optimistic local render so the message appears instantly
   _chatSessionExtras.push({
     id: 'you-' + Date.now(),
     kind: 'self',
-    userId: 'you',
-    userName: 'You',
-    hue: '#1f1e1c',
+    userId: me.name,
+    userName: me.name,
+    hue: me.hue,
     emotion,
     place,
     lat: center.lat, lng: center.lng,
@@ -2105,6 +2187,23 @@ function sendChatMessage() {
   });
   input.value = '';
   renderChat();
+  // share to community
+  postServerEntry({
+    lat: center.lat,
+    lng: center.lng,
+    emotion,
+    intensity: 5,
+    valence: affectState ? affectState.valence : 0,
+    arousal: affectState ? affectState.arousal : 0,
+    note: text,
+    placeName: place,
+    userName: me.name,
+    hue: me.hue
+  }).then(() => {
+    // server-confirmed entry replaces the optimistic one
+    _chatSessionExtras = _chatSessionExtras.filter(m => m.note !== text || m.userName !== me.name);
+    renderChat();
+  });
 }
 
 document.getElementById('modal-overlay').addEventListener('click', function(e) {
@@ -2114,4 +2213,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 
 // initial paint
 updateSidebarStats();
+// kick off an initial fetch so the world feed and messages are warm
+fetchServerEntries();
 updateMapInfo();
