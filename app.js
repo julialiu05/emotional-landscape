@@ -200,6 +200,10 @@ function hexToRgb(hex) {
     parseInt(h.substr(4, 2), 16)
   ];
 }
+function hexToRgba(hex, alpha) {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 // ---- AFFECT (Circumplex Model) ----
 let affectState = JSON.parse(localStorage.getItem('el_affect') || 'null');
@@ -1156,45 +1160,51 @@ map.on('load', () => {
     if (map.getLayer(haloId)) map.removeLayer(haloId);
     if (map.getLayer(coreId)) map.removeLayer(coreId);
 
-    // HALO — ring stroke only (no fill). Rings overlap as concentric rings,
-    // they don't accumulate as darkening blobs.
+    // HALO — heatmap layer per emotion. Density-driven color ramp means
+    // overlapping same-emotion points look DENSER (not darker). Each layer
+    // is mostly transparent at low density, so cross-emotion overlap is gentle.
     map.addLayer({
       id: haloId,
-      type: 'circle',
+      type: 'heatmap',
       source: 'el-feelings',
       filter: ['==', ['get', 'emotion'], em.id],
       paint: {
-        'circle-color': 'rgba(0,0,0,0)',
-        'circle-pitch-alignment': 'map',
-        'circle-pitch-scale': 'map',
-        'circle-radius': [
+        'heatmap-weight': ['coalesce', ['get', 'weight'], 0.5],
+        'heatmap-intensity': [
           'interpolate', ['linear'], ['zoom'],
-          10, 4,
-          12, 8,
-          14, 14,
-          15, 20,
-          17, 40,
-          19, 80
+          10, 0.6,
+          14, 1.0,
+          17, 1.5,
+          19, 2.2
         ],
-        'circle-stroke-width': [
+        'heatmap-radius': [
           'interpolate', ['linear'], ['zoom'],
-          10, 0.8,
-          14, 1.2,
-          17, 2,
-          19, 3
+          10, 12,
+          12, 18,
+          14, 28,
+          15, 38,
+          17, 60,
+          19, 100
         ],
-        'circle-stroke-color': em.color,
-        'circle-stroke-opacity': [
+        'heatmap-color': [
+          'interpolate', ['linear'], ['heatmap-density'],
+          0,    'rgba(0,0,0,0)',
+          0.10, hexToRgba(em.color, 0.18),
+          0.40, hexToRgba(em.color, 0.45),
+          0.75, hexToRgba(em.color, 0.70),
+          1,    hexToRgba(em.color, 0.85)
+        ],
+        'heatmap-opacity': [
           'interpolate', ['linear'], ['zoom'],
-          10, 0.30,
-          14, 0.45,
-          17, 0.55,
-          19, 0.65
+          10, 0.55,
+          14, 0.70,
+          17, 0.80,
+          19, 0.85
         ]
       }
     }, firstSymbolId);
 
-    // CORE — small filled dot with a thin white stroke for crispness
+    // CORE — small filled dot so individual pins remain visible at high zoom
     map.addLayer({
       id: coreId,
       type: 'circle',
@@ -1206,23 +1216,22 @@ map.on('load', () => {
         'circle-pitch-scale': 'map',
         'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
-          10, 2.5,
-          12, 4,
-          14, 6,
-          15, 8,
-          17, 14,
-          19, 24
+          10, 2,
+          14, 4,
+          17, 8,
+          19, 14
         ],
         'circle-blur': 0,
         'circle-opacity': [
-          'interpolate', ['linear'], ['coalesce', ['get', 'weight'], 0.5],
-          0.25, 0.7,
-          1,    0.92
+          'interpolate', ['linear'], ['zoom'],
+          10, 0,
+          13, 0.4,
+          15, 0.85,
+          19, 0.95
         ],
         'circle-stroke-width': [
           'interpolate', ['linear'], ['zoom'],
-          10, 0.5,
-          14, 1,
+          14, 0.8,
           17, 1.5,
           19, 2
         ],
