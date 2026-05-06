@@ -29,6 +29,34 @@
       var d = document.getElementById('world-chat');
       if (d) d.classList.toggle('open');
     }
+    function openDockPopup() {
+      var p = document.getElementById('jelly-popup');
+      var f = document.getElementById('jelly-dock-feed');
+      if (p) p.classList.add('open');
+      if (f) f.scrollTop = f.scrollHeight;
+    }
+    function closeDockPopup() {
+      var p = document.getElementById('jelly-popup');
+      if (p) p.classList.remove('open');
+    }
+    function toggleDockPopup() {
+      var p = document.getElementById('jelly-popup');
+      if (!p) return;
+      p.classList.toggle('open');
+      if (p.classList.contains('open')) {
+        var f = document.getElementById('jelly-dock-feed');
+        if (f) f.scrollTop = f.scrollHeight;
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      var feed = document.getElementById('jelly-dock-feed');
+      if (feed) {
+        new MutationObserver(openDockPopup).observe(feed, { childList: true });
+      }
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeDockPopup();
+      });
+    });
   </script>
 </head>
 <body>
@@ -145,6 +173,20 @@
     </div>
   </aside>
 
+  <!-- JELLYFISH POPUP: scrollable chat panel above the dock -->
+  <div class="jelly-popup" id="jelly-popup">
+    <div class="jelly-popup-head">
+      <span class="jelly-popup-title">
+        <span class="jelly-popup-dot"></span>
+        <span class="eyebrow">Jellyfish</span>
+      </span>
+      <button class="btn-icon" onclick="closeDockPopup()" aria-label="Close jellyfish chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+      </button>
+    </div>
+    <div class="dock-feed" id="jelly-dock-feed"></div>
+  </div>
+
   <!-- BOTTOM DOCK: dropper + jellyfish chat -->
   <div class="dock">
     <button class="dock-dropper" id="dropper" title="Drag onto the map to log a feeling">
@@ -156,6 +198,11 @@
     </button>
     <form class="dock-chat" onsubmit="event.preventDefault(); sendDockToJelly();">
       <input type="text" id="jelly-dock-input" placeholder="ask the jellyfish anything..." autocomplete="off">
+      <button type="button" class="dock-popup-toggle" onclick="toggleDockPopup()" aria-label="Show jellyfish messages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
       <button type="submit" class="dock-send" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
           <path d="M5 12 L19 12 M12 5 L19 12 L12 19"/>
@@ -163,9 +210,6 @@
       </button>
     </form>
   </div>
-
-  <!-- floating jellyfish chat messages above the dock -->
-  <div class="dock-feed" id="jelly-dock-feed"></div>
 
   <!-- RIGHT EDGE: pull-out world feed -->
   <button class="feed-handle" onclick="toggleFeed()" aria-label="Open live world feed">

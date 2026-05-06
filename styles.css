@@ -751,24 +751,79 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 .dock-send:active { transform: scale(0.96); }
 .dock-send svg { width: 16px; height: 16px; stroke-width: 2; }
 
-/* dock-feed — floating message stack above the dock */
-.dock-feed {
+/* toggle to expand/collapse the jellyfish chat popup */
+.dock-popup-toggle {
+  width: 36px; height: 36px;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-soft);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.dock-popup-toggle:hover { background: var(--paper-2); color: var(--ink); }
+.dock-popup-toggle svg { width: 18px; height: 18px; stroke-width: 1.6; }
+.jelly-popup.open ~ .dock .dock-popup-toggle { color: var(--accent); }
+
+/* jellyfish popup — contained, scrollable chat above the dock */
+.jelly-popup {
   position: fixed;
-  bottom: calc(96px + var(--safe-bottom));
+  bottom: calc(94px + var(--safe-bottom));
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(8px);
   z-index: var(--z-dock);
   width: min(560px, calc(100vw - 36px));
+  max-height: min(520px, 60vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-strong);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s var(--ease), transform 0.3s var(--ease-out);
+}
+.jelly-popup.open {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.jelly-popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+.jelly-popup-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.jelly-popup-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+  animation: feedPulse 2.4s ease-in-out infinite;
+}
+.dock-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s-4);
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
-  pointer-events: none;
-  max-height: 50vh;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(to top, black 70%, transparent);
-  mask-image: linear-gradient(to top, black 70%, transparent);
 }
-.dock-feed > * { pointer-events: auto; }
+.dock-feed::-webkit-scrollbar { width: 4px; }
+.dock-feed::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 2px; }
 
 /* jdm — single message (kept class names for JS) */
 .jdm {
@@ -777,13 +832,9 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   line-height: 1.5;
   padding: 10px 14px;
   border-radius: var(--r-md);
-  max-width: 80%;
+  max-width: 85%;
   animation: jdmIn 0.4s var(--ease-out);
-  border: 1px solid var(--hairline);
-  background: var(--surface-strong);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid transparent;
 }
 @keyframes jdmIn {
   from { opacity: 0; transform: translateY(6px); }
@@ -793,14 +844,14 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   align-self: flex-end;
   background: var(--accent);
   color: var(--accent-on);
-  border-color: transparent;
 }
 .jdm-jelly {
   align-self: flex-start;
+  background: var(--paper-2);
   color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 15px;
-  line-height: 1.45;
+  border-color: var(--hairline);
+  font-size: 14.5px;
+  line-height: 1.5;
 }
 .jdm-jelly-loading { padding: 12px 16px; }
 .jdm-jelly-loading .jdm-dots {
