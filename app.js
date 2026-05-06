@@ -101,6 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   setupAffectPad();
   setupLogPad();
+  // wire time-scrub slider
+  const scrubSlider = document.getElementById('time-scrub-slider');
+  if (scrubSlider) {
+    scrubSlider.addEventListener('input', (e) => setScrubFromSlider(+e.target.value));
+  }
   // pre-fill email for returning users — they still click Enter to proceed
   try {
     const savedUser = JSON.parse(localStorage.getItem('el_user') || 'null');
@@ -937,6 +942,7 @@ function jellyLoop() {
     jellyfishShadowLngLat.lng += dLng;
     jellyfishShadowLngLat.lat += dLat;
     updateJellyShadow();
+    sampleTrail();
     if (map.triggerRepaint) map.triggerRepaint();
 
     // follow camera when actively steering — setCenter is synchronous,
@@ -1064,7 +1070,26 @@ function refreshFeelingsSource() {
   const src = map && map.getSource && map.getSource('el-feelings');
   if (!src) return;
   const features = [];
-  entries.forEach(entry => {
+
+  // merge local entries + community entries, both go on the map
+  const merged = [
+    ...entries.map(e => ({
+      lat: e.lat, lng: e.lng,
+      emotions: e.emotions || [],
+      intensity: e.intensity,
+      timestamp: e.timestamp
+    })),
+    ...(_serverEntries || []).map(e => ({
+      lat: +e.lat, lng: +e.lng,
+      emotions: [e.emotion],
+      intensity: e.intensity || 5,
+      timestamp: e.timestamp
+    }))
+  ];
+
+  const cutoff = (typeof _scrubTimeMs === 'number') ? _scrubTimeMs : null;
+  merged.forEach(entry => {
+    if (cutoff !== null && +new Date(entry.timestamp) > cutoff) return;
     entry.emotions.forEach(emId => {
       features.push({
         type: 'Feature',
@@ -1076,8 +1101,121 @@ function refreshFeelingsSource() {
       });
     });
   });
+
+  src.setData({ type: 'FeatureCollection', features });
+  updateScrubBounds();
+}
+
+// ---- TIME SCRUB ----
+let _scrubTimeMs = null;  // null = live (latest)
+function getOldestTimestamp() {
+  const all = [...entries, ...(_serverEntries || [])];
+  if (!all.length) return Date.now() - 24 * 60 * 60 * 1000;
+  return Math.min(...all.map(e => +new Date(e.timestamp)));
+}
+function updateScrubBounds() {
+  const wrap = document.getElementById('time-scrub');
+  if (!wrap) return;
+  const total = entries.length + (_serverEntries || []).length;
+  // only show scrub when there's actually history to scrub
+  wrap.hidden = total < 2;
+}
+function setScrubFromSlider(pct) {
+  const slider = document.getElementById('time-scrub-slider');
+  const label  = document.getElementById('time-scrub-label');
+  if (!slider) return;
+  if (pct >= 998) {
+    _scrubTimeMs = null;
+    if (label) label.textContent = 'Now';
+  } else {
+    const oldest = getOldestTimestamp();
+    const now = Date.now();
+    _scrubTimeMs = oldest + (now - oldest) * (pct / 1000);
+    if (label) label.textContent = formatScrubLabel(_scrubTimeMs);
+  }
+  refreshFeelingsSource();
+}
+function resetScrub() {
+  const slider = document.getElementById('time-scrub-slider');
+  if (slider) slider.value = 1000;
+  setScrubFromSlider(1000);
+}
+function formatScrubLabel(ms) {
+  const diffMin = Math.round((Date.now() - ms) / 60000);
+  if (diffMin < 1)   return 'just now';
+  if (diffMin < 60)  return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24)   return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
+// ---- SPLASH on new check-in ----
+function splashAt(lng, lat, color) {
+  if (!map || typeof lng !== 'number' || typeof lat !== 'number') return;
+  const el = document.createElement('div');
+  el.className = 'map-splash';
+  el.style.setProperty('--splash-color', color || '#7ee5d4');
+  const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+    .setLngLat([lng, lat])
+    .addTo(map);
+  setTimeout(() => marker.remove(), 1700);
+}
+
+// ---- JELLYFISH TRAIL ----
+const _trailPositions = [];
+const TRAIL_MAX = 28;
+const TRAIL_SAMPLE_MS = 200;
+const TRAIL_LIFETIME_MS = 4500;
+let _lastTrailSample = 0;
+
+function currentEmotionColor() {
+  if (affectState) {
+    const em = nearestEmotion(affectState.valence, affectState.arousal);
+    if (em && em.color) return em.color;
+  }
+  if (entries.length) {
+    const last = entries[entries.length - 1];
+    const id = (last.emotions || [])[0];
+    return (EMOTION_MAP[id] && EMOTION_MAP[id].color) || '#7ee5d4';
+  }
+  return '#7ee5d4';
+}
+
+function sampleTrail() {
+  const now = performance.now();
+  if (now - _lastTrailSample < TRAIL_SAMPLE_MS) return;
+  if (!jellyfishShadowLngLat) return;
+  _lastTrailSample = now;
+  _trailPositions.push({
+    lng: jellyfishShadowLngLat.lng,
+    lat: jellyfishShadowLngLat.lat,
+    color: currentEmotionColor(),
+    t: Date.now()
+  });
+  while (_trailPositions.length > TRAIL_MAX) _trailPositions.shift();
+}
+
+function updateTrailSource() {
+  if (!map || !map.getSource) return;
+  const src = map.getSource('el-jelly-trail');
+  if (!src) return;
+  const now = Date.now();
+  // prune old
+  while (_trailPositions.length && now - _trailPositions[0].t > TRAIL_LIFETIME_MS) {
+    _trailPositions.shift();
+  }
+  const features = _trailPositions.map(p => ({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+    properties: {
+      age: Math.min(1, (now - p.t) / TRAIL_LIFETIME_MS),
+      color: p.color
+    }
+  }));
   src.setData({ type: 'FeatureCollection', features });
 }
+setInterval(updateTrailSource, 180);
 
 // ---- MAP (MapLibre GL — 3D pitched view, OpenFreeMap tiles) ----
 const map = new maplibregl.Map({
@@ -1149,6 +1287,34 @@ map.on('load', () => {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] }
     });
+  }
+
+  // jellyfish trail — fading dots colored by current affect
+  if (!map.getSource('el-jelly-trail')) {
+    map.addSource('el-jelly-trail', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+  }
+  if (!map.getLayer('el-jelly-trail')) {
+    map.addLayer({
+      id: 'el-jelly-trail',
+      type: 'circle',
+      source: 'el-jelly-trail',
+      paint: {
+        'circle-color': ['get', 'color'],
+        'circle-pitch-alignment': 'map',
+        'circle-pitch-scale': 'map',
+        'circle-radius': [
+          'interpolate', ['linear'], ['zoom'],
+          14, ['interpolate', ['linear'], ['get', 'age'], 0, 5,  1, 1],
+          17, ['interpolate', ['linear'], ['get', 'age'], 0, 10, 1, 2],
+          19, ['interpolate', ['linear'], ['get', 'age'], 0, 18, 1, 3]
+        ],
+        'circle-opacity': ['interpolate', ['linear'], ['get', 'age'], 0, 0.55, 1, 0],
+        'circle-blur': 0.6
+      }
+    }, firstSymbolId);
   }
 
   // ground-aligned circle wash — lies flat on the world, stretches with perspective,
@@ -1668,6 +1834,9 @@ function submitEntry() {
   localStorage.setItem('el_entries', JSON.stringify(entries));
   addMarker(entry);
   refreshFeelingsSource();
+  // visual splash for the user's own check-in
+  const _em = EMOTION_MAP[entry.emotions[0]] || EMOTIONS[0];
+  splashAt(entry.lng, entry.lat, _em.color);
 
   // share to community feed
   const me = getOrCreateUserIdentity();
@@ -2145,8 +2314,19 @@ async function fetchServerEntries() {
     if (!res.ok) return;
     const data = await res.json();
     if (data && Array.isArray(data.entries)) {
+      // diff: animate splash for newly-arrived entries
+      const oldIds = new Set((_serverEntries || []).map(e => e.id));
+      const fresh = data.entries.filter(e => !oldIds.has(e.id));
       _serverEntries = data.entries;
+      // splash new ones (but not on the very first load)
+      if (oldIds.size > 0 && fresh.length && fresh.length < 12) {
+        fresh.forEach(e => {
+          const em = EMOTION_MAP[e.emotion] || EMOTIONS[0];
+          splashAt(+e.lng, +e.lat, em.color);
+        });
+      }
       // refresh anywhere that consumes the community feed
+      refreshFeelingsSource();
       if (document.getElementById('world-chat-feed')) renderWorldChat();
       if (document.getElementById('chat-list')) renderChat();
     }

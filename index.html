@@ -230,6 +230,13 @@
   <!-- transient hint (shown by showMapHint) -->
   <div class="map-instructions" id="map-hint">Drag the pin to the map to log a feeling</div>
 
+  <!-- TIME SCRUB: rewind through community check-ins -->
+  <div class="time-scrub" id="time-scrub" hidden>
+    <span class="time-scrub-label" id="time-scrub-label">Now</span>
+    <input type="range" id="time-scrub-slider" min="0" max="1000" value="1000" step="1" aria-label="Scrub through time">
+    <button class="time-scrub-now" id="time-scrub-now" onclick="resetScrub()">Now</button>
+  </div>
+
   <!-- legacy hidden DOM nodes (JS still references their IDs) -->
   <div class="map-info-panel" id="map-info-panel" hidden>
     <div class="map-info-title"><span class="led"></span><span>Activity</span></div>
