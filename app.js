@@ -1156,31 +1156,45 @@ map.on('load', () => {
     if (map.getLayer(haloId)) map.removeLayer(haloId);
     if (map.getLayer(coreId)) map.removeLayer(coreId);
 
+    // HALO — ring stroke only (no fill). Rings overlap as concentric rings,
+    // they don't accumulate as darkening blobs.
     map.addLayer({
       id: haloId,
       type: 'circle',
       source: 'el-feelings',
       filter: ['==', ['get', 'emotion'], em.id],
       paint: {
-        'circle-color': em.color,
+        'circle-color': 'rgba(0,0,0,0)',
         'circle-pitch-alignment': 'map',
         'circle-pitch-scale': 'map',
         'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
-          12, 18,
-          15, 48,
-          17, 90,
-          19, 180
+          10, 4,
+          12, 8,
+          14, 14,
+          15, 20,
+          17, 40,
+          19, 80
         ],
-        'circle-blur': 1,
-        'circle-opacity': [
-          'interpolate', ['linear'], ['coalesce', ['get', 'weight'], 0.5],
-          0.25, 0.16,
-          1,    0.32
+        'circle-stroke-width': [
+          'interpolate', ['linear'], ['zoom'],
+          10, 0.8,
+          14, 1.2,
+          17, 2,
+          19, 3
+        ],
+        'circle-stroke-color': em.color,
+        'circle-stroke-opacity': [
+          'interpolate', ['linear'], ['zoom'],
+          10, 0.30,
+          14, 0.45,
+          17, 0.55,
+          19, 0.65
         ]
       }
     }, firstSymbolId);
 
+    // CORE — small filled dot with a thin white stroke for crispness
     map.addLayer({
       id: coreId,
       type: 'circle',
@@ -1192,17 +1206,28 @@ map.on('load', () => {
         'circle-pitch-scale': 'map',
         'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
-          12, 8,
-          15, 20,
-          17, 40,
-          19, 80
+          10, 2.5,
+          12, 4,
+          14, 6,
+          15, 8,
+          17, 14,
+          19, 24
         ],
-        'circle-blur': 0.8,
+        'circle-blur': 0,
         'circle-opacity': [
           'interpolate', ['linear'], ['coalesce', ['get', 'weight'], 0.5],
-          0.25, 0.22,
-          1,    0.45
-        ]
+          0.25, 0.7,
+          1,    0.92
+        ],
+        'circle-stroke-width': [
+          'interpolate', ['linear'], ['zoom'],
+          10, 0.5,
+          14, 1,
+          17, 1.5,
+          19, 2
+        ],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-opacity': 0.7
       }
     }, firstSymbolId);
   });
@@ -2085,11 +2110,21 @@ const _ANON_HUES = ['#7ee5d4', '#a8b5d6', '#c89a8e', '#a89c82', '#d4a5e8', '#86a
 function getOrCreateUserIdentity() {
   let stored = null;
   try { stored = JSON.parse(localStorage.getItem('el_user') || 'null'); } catch (_) { stored = null; }
-  if (!stored || !stored.name || !stored.hue) {
-    const name = _ANON_ADJ[Math.floor(Math.random() * _ANON_ADJ.length)] + ' ' +
-                 _ANON_NOUN[Math.floor(Math.random() * _ANON_NOUN.length)];
-    const hue = _ANON_HUES[Math.floor(Math.random() * _ANON_HUES.length)];
-    stored = { name, hue };
+  if (!stored) stored = {};
+  let changed = false;
+  // only generate an anon name if no real name from sign-up exists
+  // (and treat the placeholder "Guest" as missing too)
+  if (!stored.name || stored.name === 'Guest') {
+    const adj = _ANON_ADJ[Math.floor(Math.random() * _ANON_ADJ.length)];
+    const noun = _ANON_NOUN[Math.floor(Math.random() * _ANON_NOUN.length)];
+    stored.name = adj + ' ' + noun;
+    changed = true;
+  }
+  if (!stored.hue) {
+    stored.hue = _ANON_HUES[Math.floor(Math.random() * _ANON_HUES.length)];
+    changed = true;
+  }
+  if (changed) {
     try { localStorage.setItem('el_user', JSON.stringify(stored)); } catch (_) {}
   }
   return stored;
