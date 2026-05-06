@@ -253,48 +253,50 @@
 
 <!-- ===================== DASHBOARD VIEW ===================== -->
 <div id="dashboard-view" class="view">
-  <div class="dash-header">
-    <div>
-      <p>A living portrait across Berkeley.</p>
-    </div>
-    <div class="dash-header-meta">
-      <span class="date" id="dash-date"></span>
-    </div>
-  </div>
+  <!-- terrain canvas as full-bleed background -->
+  <canvas id="landscape-canvas" class="dashboard-bg"></canvas>
+  <div class="dashboard-bg-veil"></div>
 
-  <div class="dash-bento" id="dash-bento">
-    <div class="landscape-section bento-landscape">
-      <h3>Emotional Terrain</h3>
-      <canvas id="landscape-canvas"></canvas>
+  <div class="dash-content">
+    <div class="dash-header">
+      <div>
+        <p>A living portrait across Berkeley.</p>
+      </div>
+      <div class="dash-header-meta">
+        <span class="date" id="dash-date"></span>
+      </div>
     </div>
-    <div class="stat-card bento-stat" id="stat-count">
-      <div class="stat-label">Check-ins</div>
-      <div class="stat-value">0</div>
-      <div class="stat-sub">total entries</div>
-    </div>
-    <div class="stat-card bento-stat" id="stat-intensity">
-      <div class="stat-label">Avg Intensity</div>
-      <div class="stat-value">—</div>
-      <div class="stat-sub">out of 10</div>
-    </div>
-    <div class="mood-card bento-mood" id="mood-card">
-      <h3>Prevailing Mood</h3>
-      <div class="mood-orb" id="mood-orb"></div>
-      <div class="mood-name" id="mood-name">—</div>
-      <div class="mood-desc" id="mood-desc">No data yet</div>
-    </div>
-    <div class="stat-card bento-stat" id="stat-days">
-      <div class="stat-label">Active Days</div>
-      <div class="stat-value">0</div>
-      <div class="stat-sub">days logged</div>
-    </div>
-    <div class="dash-card bento-bars">
-      <h3>Emotion Frequency</h3>
-      <div class="emotion-bars" id="emotion-bars"></div>
-    </div>
-    <div class="dash-card bento-timeline">
-      <h3>Recent Check-ins</h3>
-      <div class="timeline" id="timeline"></div>
+
+    <div class="dash-bento" id="dash-bento">
+      <div class="stat-card bento-stat" id="stat-count">
+        <div class="stat-label">Check-ins</div>
+        <div class="stat-value">0</div>
+        <div class="stat-sub">total entries</div>
+      </div>
+      <div class="stat-card bento-stat" id="stat-intensity">
+        <div class="stat-label">Avg Intensity</div>
+        <div class="stat-value">—</div>
+        <div class="stat-sub">out of 10</div>
+      </div>
+      <div class="stat-card bento-stat" id="stat-days">
+        <div class="stat-label">Active Days</div>
+        <div class="stat-value">0</div>
+        <div class="stat-sub">days logged</div>
+      </div>
+      <div class="mood-card bento-mood" id="mood-card">
+        <h3>Prevailing Mood</h3>
+        <div class="mood-orb" id="mood-orb"></div>
+        <div class="mood-name" id="mood-name">—</div>
+        <div class="mood-desc" id="mood-desc">No data yet</div>
+      </div>
+      <div class="dash-card bento-bars">
+        <h3>Emotion Frequency</h3>
+        <div class="emotion-bars" id="emotion-bars"></div>
+      </div>
+      <div class="dash-card bento-timeline">
+        <h3>Recent Check-ins</h3>
+        <div class="timeline" id="timeline"></div>
+      </div>
     </div>
   </div>
 </div>

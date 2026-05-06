@@ -1728,19 +1728,6 @@ function renderDashboard() {
     `radial-gradient(circle at 30% 25%, ${topEm.color} 0%, ${topEm.color} 40%, ${shade(topEm.color, -30)} 100%)`);
   orb.style.setProperty('--orb-shadow', topEm.glow);
   if (moodCard) moodCard.style.setProperty('--mood-glow', topEm.glow);
-}
-
-function shade(hex, lum) {
-  hex = String(hex).replace(/[^0-9a-f]/gi, '');
-  if (hex.length < 6) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-  lum = lum/100 || 0;
-  let rgb = '#';
-  for (let i = 0; i < 3; i++) {
-    const c = parseInt(hex.substr(i*2,2), 16);
-    const v = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
-    rgb += ('00'+v).substr(v.length);
-  }
-  return rgb;
 
   const maxCount = Math.max(...Object.values(emotionCounts));
   document.getElementById('emotion-bars').innerHTML = EMOTIONS.map(e => {
@@ -1769,7 +1756,21 @@ function shade(hex, lum) {
     </div>`;
   }).join('');
 
-  drawLandscape();
+  // ensure layout is flushed before sizing the canvas
+  requestAnimationFrame(() => drawLandscape());
+}
+
+function shade(hex, lum) {
+  hex = String(hex).replace(/[^0-9a-f]/gi, '');
+  if (hex.length < 6) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  lum = lum/100 || 0;
+  let rgb = '#';
+  for (let i = 0; i < 3; i++) {
+    const c = parseInt(hex.substr(i*2,2), 16);
+    const v = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
+    rgb += ('00'+v).substr(v.length);
+  }
+  return rgb;
 }
 
 // ---- EMOTIONAL TERRAIN (animated canvas) ----
