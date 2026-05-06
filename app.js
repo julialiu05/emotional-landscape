@@ -403,13 +403,48 @@ function buildJellyContext(extra = {}) {
     timestamp: e.timestamp
   }));
   const last = recent[recent.length - 1];
+
+  // ---- area mood: scan community entries near the user's current center ----
+  let areaMood = null;
+  try {
+    const center = (map && map.getCenter && map.getCenter())
+      || (last && { lat: last.lat, lng: last.lng })
+      || { lat: 37.8716, lng: -122.2727 };
+    const NEAR_KM = 0.6;  // ~6 city blocks
+    const nearby = (_serverEntries || []).filter(e => {
+      const d = haversineKm(+e.lat, +e.lng, center.lat, center.lng);
+      return d <= NEAR_KM;
+    });
+    if (nearby.length >= 2) {
+      const counts = {};
+      nearby.forEach(e => { counts[e.emotion] = (counts[e.emotion] || 0) + 1; });
+      const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const top = ranked[0];
+      areaMood = {
+        n: nearby.length,
+        top: top[0],
+        topShare: +(top[1] / nearby.length).toFixed(2),
+        mix: ranked.slice(0, 4).map(([e, c]) => ({ emotion: e, count: c }))
+      };
+    }
+  } catch (_) {}
+
   return {
     recentEntries: recent,
     affect: affectState,
     lastEmotion: last && last.emotion,
     placeNow: extra.placeNow || (last && last.place) || null,
+    areaMood,
     ...extra
   };
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
 
 async function askJelly(message, contextExtras) {
@@ -1651,6 +1686,10 @@ function switchView(name) {
   if (name === 'journal') {
     renderChat();                           // paint cached/local immediately
     fetchServerEntries().then(renderChat);  // refresh from server, repaint
+    fetchPresence();
+    startJournalPolling();                  // 7s polling while on this view
+  } else {
+    stopJournalPolling();
   }
   updateSidebarStats();
 }
@@ -2070,6 +2109,135 @@ async function fetchServerEntries() {
   } catch (_) { /* offline — keep last cache */ }
 }
 
+// ---- PRESENCE (online users) ----
+let _onlineUsers = [];
+async function presenceHeartbeat() {
+  const me = getOrCreateUserIdentity();
+  try {
+    await fetch('/api/presence', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userName: me.name, hue: me.hue })
+    });
+  } catch (_) {}
+}
+async function fetchPresence() {
+  try {
+    const res = await fetch('/api/presence');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.online)) {
+      _onlineUsers = data.online;
+      if (document.getElementById('chat-list')) renderChat();
+    }
+  } catch (_) {}
+}
+function isOnline(name) { return _onlineUsers.some(u => u.name === name); }
+
+// ---- ECHOES (stored locally so we can show "filled" state instantly) ----
+function getMyEchoes() {
+  try { return new Set(JSON.parse(localStorage.getItem('el_echoes') || '[]')); }
+  catch (_) { return new Set(); }
+}
+function saveMyEchoes(set) {
+  try { localStorage.setItem('el_echoes', JSON.stringify([...set])); } catch (_) {}
+}
+async function toggleEcho(entryId) {
+  const me = getOrCreateUserIdentity();
+  // optimistic local update
+  const echoes = getMyEchoes();
+  const wasEchoed = echoes.has(entryId);
+  if (wasEchoed) echoes.delete(entryId); else echoes.add(entryId);
+  saveMyEchoes(echoes);
+  const target = _serverEntries.find(e => e.id === entryId);
+  if (target) target.echoCount = Math.max(0, (target.echoCount || 0) + (wasEchoed ? -1 : 1));
+  renderChat();
+  // sync to server
+  try {
+    const res = await fetch('/api/entries?action=echo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId, userName: me.name })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (target && typeof data.count === 'number') target.echoCount = data.count;
+      renderChat();
+    }
+  } catch (_) {}
+}
+
+// ---- REPLIES ----
+const _repliesCache = {};        // entryId → array of replies (loaded lazily)
+const _expandedReplies = new Set(); // entryId set — which threads are expanded
+async function fetchReplies(entryId) {
+  try {
+    const res = await fetch('/api/entries?action=replies&id=' + encodeURIComponent(entryId));
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.replies)) {
+      _repliesCache[entryId] = data.replies;
+      renderChat();
+    }
+  } catch (_) {}
+}
+function toggleReplies(entryId) {
+  if (_expandedReplies.has(entryId)) {
+    _expandedReplies.delete(entryId);
+    renderChat();
+  } else {
+    _expandedReplies.add(entryId);
+    if (!_repliesCache[entryId]) fetchReplies(entryId);
+    else renderChat();
+  }
+}
+async function submitReply(entryId, inputEl) {
+  const text = (inputEl.value || '').trim();
+  if (!text) return;
+  const me = getOrCreateUserIdentity();
+  inputEl.value = '';
+  // optimistic
+  const optimistic = {
+    id: 'opt-' + Date.now(),
+    userName: me.name,
+    hue: me.hue,
+    text,
+    timestamp: new Date().toISOString()
+  };
+  _repliesCache[entryId] = [...(_repliesCache[entryId] || []), optimistic];
+  const target = _serverEntries.find(e => e.id === entryId);
+  if (target) target.replyCount = (target.replyCount || 0) + 1;
+  renderChat();
+  try {
+    const res = await fetch('/api/entries?action=reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId, userName: me.name, hue: me.hue, text })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // replace optimistic with confirmed
+      _repliesCache[entryId] = (_repliesCache[entryId] || []).filter(r => r.id !== optimistic.id);
+      if (data.reply) _repliesCache[entryId].push(data.reply);
+      if (target && typeof data.count === 'number') target.replyCount = data.count;
+      renderChat();
+    }
+  } catch (_) {}
+}
+
+// ---- REAL-TIME POLLING (when journal view is active + tab visible) ----
+let _journalPollId = null;
+function startJournalPolling() {
+  stopJournalPolling();
+  _journalPollId = setInterval(() => {
+    if (document.hidden) return;
+    fetchServerEntries();
+  }, 7000);
+}
+function stopJournalPolling() {
+  if (_journalPollId) { clearInterval(_journalPollId); _journalPollId = null; }
+}
+
 async function postServerEntry(payload) {
   try {
     const res = await fetch('/api/entries', {
@@ -2117,6 +2285,26 @@ function setChatFilter(f) {
 function renderChat() {
   const list = document.getElementById('chat-list');
   if (!list) return;
+
+  // ---- presence bar at the top ----
+  const presenceEl = document.getElementById('chat-presence');
+  if (presenceEl) {
+    const me = getOrCreateUserIdentity();
+    const others = _onlineUsers.filter(u => u.name !== me.name);
+    const total = _onlineUsers.length;
+    if (total === 0) {
+      presenceEl.innerHTML = `<span class="presence-empty">just you here · ${me.name}</span>`;
+    } else {
+      const dots = _onlineUsers.slice(0, 6).map(u =>
+        `<span class="presence-chip" style="--user-hue:${u.hue};" title="${u.name}">
+          <span class="presence-dot"></span>${u.name}${u.name === me.name ? ' (you)' : ''}
+        </span>`
+      ).join('');
+      const more = total > 6 ? `<span class="presence-more">+${total - 6}</span>` : '';
+      presenceEl.innerHTML = `<span class="presence-count">${total} here now</span> ${dots} ${more}`;
+    }
+  }
+
   const feed = buildChatFeed();
   const shown = chatFilter === 'mine'   ? feed.filter(m => m.kind === 'self')
               : chatFilter === 'others' ? feed.filter(m => m.kind === 'other')
@@ -2130,34 +2318,95 @@ function renderChat() {
     return;
   }
 
+  const myEchoes = getMyEchoes();
+  const me = getOrCreateUserIdentity();
+
   list.innerHTML = shown.map(m => {
     const em = EMOTION_MAP[m.emotion] || EMOTIONS[0];
     const time = new Date(m.timestamp);
     const rel = formatRelTime(m.timestamp);
+    const serverEntry = _serverEntries.find(e => e.id === m.id);
+    const echoCount = serverEntry?.echoCount || 0;
+    const replyCount = serverEntry?.replyCount || 0;
+    const iEchoed = myEchoes.has(m.id);
+    const expanded = _expandedReplies.has(m.id);
+    const replies = _repliesCache[m.id] || [];
+
+    const onlineDot = isOnline(m.userName) ? `<span class="user-online-dot" title="online"></span>` : '';
+
     return `<div class="chat-msg ${m.kind === 'self' ? 'self' : ''}" data-id="${m.id}" style="--em-color:${em.color};">
       <div class="chat-avatar" style="--user-hue:${m.hue};">${initialsOf(m.userName)}</div>
       <div class="chat-msg-body">
         <div class="chat-msg-head">
-          <span class="chat-username">${m.userName}</span>
+          <span class="chat-username">${m.userName}${onlineDot}</span>
           <span class="chat-emotion-chip" style="color:${em.color};">${em.label}</span>
           <span class="chat-time">${rel}</span>
         </div>
-        <div class="chat-msg-place">at <em>${m.place}</em></div>
+        <div class="chat-msg-place" data-action="fly">at <em>${m.place}</em></div>
         ${m.note ? `<div class="chat-msg-note">${m.note}</div>` : ''}
-        <div class="chat-msg-coords">${m.lat.toFixed(4)}, ${m.lng.toFixed(4)} · ${time.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+        <div class="chat-msg-actions">
+          <button class="chat-action ${iEchoed ? 'on' : ''}" data-action="echo">
+            <svg viewBox="0 0 24 24" fill="${iEchoed ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span>${echoCount > 0 ? echoCount : ''}</span>
+          </button>
+          <button class="chat-action" data-action="reply">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+            <span>${replyCount > 0 ? `${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}` : 'reply'}</span>
+          </button>
+          <span class="chat-msg-coords">${m.lat.toFixed(3)}, ${m.lng.toFixed(3)} · ${time.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        ${expanded ? `
+          <div class="reply-thread">
+            ${replies.map(r => `
+              <div class="reply">
+                <div class="reply-avatar" style="--user-hue:${r.hue};">${initialsOf(r.userName)}</div>
+                <div class="reply-body">
+                  <span class="reply-name">${r.userName}${isOnline(r.userName) ? '<span class="user-online-dot"></span>' : ''}</span>
+                  <span class="reply-time">${formatRelTime(r.timestamp)}</span>
+                  <div class="reply-text">${r.text}</div>
+                </div>
+              </div>
+            `).join('')}
+            <form class="reply-form" data-action="reply-submit">
+              <input class="reply-input" placeholder="Reply as ${me.name}…" maxlength="280">
+              <button class="reply-send" type="submit">Send</button>
+            </form>
+          </div>
+        ` : ''}
       </div>
     </div>`;
   }).join('');
 
+  // wire up message actions
   list.querySelectorAll('.chat-msg').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.id;
-      const msg = buildChatFeed().find(m => m.id === id);
-      if (msg && map) {
-        switchView('map');
-        setTimeout(() => map.flyTo({ center: [msg.lng, msg.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 }), 200);
-      }
+    const id = el.dataset.id;
+    el.querySelectorAll('[data-action]').forEach(actionEl => {
+      actionEl.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = actionEl.dataset.action;
+        if (action === 'echo')  toggleEcho(id);
+        if (action === 'reply') toggleReplies(id);
+        if (action === 'fly') {
+          const msg = buildChatFeed().find(m => m.id === id);
+          if (msg && map) {
+            switchView('map');
+            setTimeout(() => map.flyTo({ center: [msg.lng, msg.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 }), 200);
+          }
+        }
+      });
     });
+    const form = el.querySelector('form[data-action="reply-submit"]');
+    if (form) {
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const input = form.querySelector('.reply-input');
+        if (input) submitReply(id, input);
+      });
+    }
   });
 }
 
@@ -2215,4 +2464,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 updateSidebarStats();
 // kick off an initial fetch so the world feed and messages are warm
 fetchServerEntries();
+
+// presence: send heartbeat now + every 20s; fetch online list every 20s
+presenceHeartbeat();
+fetchPresence();
+setInterval(() => { if (!document.hidden) presenceHeartbeat(); }, 20000);
+setInterval(() => { if (!document.hidden) fetchPresence(); }, 20000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { presenceHeartbeat(); fetchPresence(); }
+});
 updateMapInfo();

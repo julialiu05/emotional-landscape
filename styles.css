@@ -1382,6 +1382,162 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   min-height: 0;
 }
 
+/* presence bar — who is online right now */
+.chat-presence {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-3);
+  padding: var(--s-2) 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.presence-count {
+  font-weight: 500;
+  color: var(--ink);
+  margin-right: var(--s-2);
+}
+.presence-empty {
+  color: var(--muted);
+}
+.presence-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--paper-2);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  color: var(--ink);
+}
+.presence-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--user-hue, var(--accent));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--user-hue, var(--accent)) 60%, transparent);
+}
+.presence-more {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 8px;
+}
+.user-online-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 6px var(--good);
+  margin-left: 6px;
+  vertical-align: middle;
+  animation: feedPulse 2.4s ease-in-out infinite;
+}
+
+/* per-message actions: echo (heart) + reply */
+.chat-msg-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-3);
+  padding-top: var(--s-2);
+  border-top: 1px dashed var(--hairline);
+  flex-wrap: wrap;
+}
+.chat-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.chat-action:hover { background: var(--paper-3); color: var(--ink); }
+.chat-action.on { color: var(--accent); }
+.chat-action svg { width: 14px; height: 14px; }
+.chat-msg-actions .chat-msg-coords { margin-left: auto; }
+
+/* reply thread */
+.reply-thread {
+  margin-top: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.reply {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+.reply-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--user-hue, var(--accent));
+  color: var(--accent-on);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.reply-body { flex: 1; min-width: 0; }
+.reply-name {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ink);
+}
+.reply-time {
+  margin-left: var(--s-2);
+  font-size: 11px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.reply-text {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+.reply-form {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin-top: var(--s-2);
+}
+.reply-input {
+  flex: 1;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-pill);
+  padding: 8px 14px;
+  outline: none;
+  transition: border-color 0.2s var(--ease);
+}
+.reply-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
+.reply-send {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-on);
+  background: var(--accent);
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s var(--ease);
+}
+.reply-send:hover { background: var(--accent-deep); }
+
 .chat-filter-row {
   display: flex;
   gap: var(--s-2);
@@ -1683,6 +1839,10 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
 .log-pad::after  { top: 8%; bottom: 8%; left: 50%; width: 1px; }
 
 .log-pad-anchors { position: absolute; inset: 0; pointer-events: none; }
+
+/* the modal pad already has labeled emotion anchors (Joy, Anger, etc.)
+   so the axis labels are redundant + visually collide with anchors */
+.log-pad .affect-axis-label { display: none; }
 .log-pad-anchor {
   position: absolute;
   font-family: var(--font-ui);
