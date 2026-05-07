@@ -1476,6 +1476,48 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   min-height: 0;
 }
 
+/* messages tab sub-view toggle (Lobby ↔ Loggings) */
+.msg-toggle {
+  display: inline-flex;
+  background: var(--paper-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 4px;
+  gap: 2px;
+  margin-bottom: var(--s-3);
+  align-self: flex-start;
+}
+.msg-toggle-btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.msg-toggle-btn:hover { color: var(--ink); }
+.msg-toggle-btn.active {
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow-xs);
+}
+
+/* loggings list — community check-ins */
+.loggings-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-right: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+.loggings-list::-webkit-scrollbar { width: 4px; }
+.loggings-list::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 2px; }
+
 /* lobby chat — shared real-time room */
 .lobby-list {
   flex: 1;

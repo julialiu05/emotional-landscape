@@ -320,8 +320,13 @@
 
   <div class="chat-body">
     <div class="chat-presence" id="chat-presence"></div>
+    <div class="msg-toggle" role="tablist">
+      <button class="msg-toggle-btn active" data-view="lobby" onclick="setMessagesView('lobby')">Lobby</button>
+      <button class="msg-toggle-btn" data-view="loggings" onclick="setMessagesView('loggings')">Loggings</button>
+    </div>
     <div class="lobby-list" id="lobby-list"></div>
-    <div class="chat-composer">
+    <div class="loggings-list" id="loggings-list" hidden></div>
+    <div class="chat-composer" id="lobby-composer">
       <input type="text" id="lobby-input" placeholder="Say something to the room…" maxlength="500" onkeydown="if(event.key==='Enter') sendLobbyMessage()">
       <button class="chat-send" onclick="sendLobbyMessage()">Send</button>
     </div>

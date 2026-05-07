@@ -2330,7 +2330,7 @@ async function fetchServerEntries() {
       // refresh anywhere that consumes the community feed
       refreshFeelingsSource();
       if (document.getElementById('world-chat-feed')) renderWorldChat();
-      if (document.getElementById('chat-list')) renderChat();
+      renderChat();   // updates presence + loggings if visible
     }
   } catch (_) { /* offline — keep last cache */ }
 }
@@ -2459,6 +2459,7 @@ function startJournalPolling() {
     if (document.hidden) return;
     fetchLobbyMessages();
     fetchPresence();
+    if (_msgView === 'loggings') fetchServerEntries();
   }, 4000);
 }
 function stopJournalPolling() {
@@ -2595,8 +2596,11 @@ function escapeHtml(s) {
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 }
 
-// keep the old name working — anywhere that called renderChat() now renders lobby
-function renderChat() { renderLobby({ scroll: false }); }
+// keep the old name working — refreshes presence + active sub-view
+function renderChat() {
+  renderLobby({ scroll: false });
+  if (_msgView === 'loggings' && document.getElementById('loggings-list')) renderLoggings();
+}
 
 async function postServerEntry(payload) {
   try {
@@ -2615,8 +2619,130 @@ async function postServerEntry(payload) {
   return null;
 }
 
-// (the old community-feed renderChat / sendChatMessage / buildChatFeed
-// were here; removed in favor of the shared lobby chat above.)
+// ---- MESSAGES TAB SUB-VIEW (Lobby ↔ Loggings) ----
+let _msgView = 'lobby';
+function setMessagesView(name) {
+  _msgView = name;
+  document.querySelectorAll('.msg-toggle-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === name)
+  );
+  document.getElementById('lobby-list').hidden    = name !== 'lobby';
+  document.getElementById('loggings-list').hidden = name !== 'loggings';
+  const composer = document.getElementById('lobby-composer');
+  if (composer) composer.hidden = name !== 'lobby';
+  if (name === 'loggings') {
+    fetchServerEntries();   // refresh community check-ins
+    renderLoggings();
+  } else {
+    fetchLobbyMessages();
+    renderLobby({ scroll: true });
+  }
+}
+
+function renderLoggings() {
+  const list = document.getElementById('loggings-list');
+  if (!list) return;
+
+  const me = getOrCreateUserIdentity();
+  const myEchoes = getMyEchoes();
+  const items = [..._serverEntries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="lobby-empty">
+      <h3>No check-ins yet</h3>
+      <p>Drop a feeling on the map and it will land here.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(m => {
+    const em = EMOTION_MAP[m.emotion] || EMOTIONS[0];
+    const time = new Date(m.timestamp);
+    const rel = formatRelTime(m.timestamp);
+    const echoCount = m.echoCount || 0;
+    const replyCount = m.replyCount || 0;
+    const iEchoed = myEchoes.has(m.id);
+    const expanded = _expandedReplies.has(m.id);
+    const replies = _repliesCache[m.id] || [];
+    const isMe = m.userName === me.name;
+    const onlineDot = isOnline(m.userName) ? `<span class="user-online-dot"></span>` : '';
+    const place = m.placeName || `${(+m.lat).toFixed(3)}, ${(+m.lng).toFixed(3)}`;
+
+    return `<div class="chat-msg ${isMe ? 'self' : ''}" data-id="${m.id}" style="--em-color:${em.color};">
+      <div class="chat-avatar" style="--user-hue:${m.hue || '#7ee5d4'};">${initialsOf(m.userName || 'A')}</div>
+      <div class="chat-msg-body">
+        <div class="chat-msg-head">
+          <span class="chat-username">${m.userName || 'Anon'}${onlineDot}</span>
+          <span class="chat-emotion-chip" style="color:${em.color};">${em.label}</span>
+          <span class="chat-time">${rel}</span>
+        </div>
+        <div class="chat-msg-place" data-action="fly">at <strong>${place}</strong></div>
+        ${m.note ? `<div class="chat-msg-note">${escapeHtml(m.note)}</div>` : ''}
+        <div class="chat-msg-actions">
+          <button class="chat-action ${iEchoed ? 'on' : ''}" data-action="echo">
+            <svg viewBox="0 0 24 24" fill="${iEchoed ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span>${echoCount > 0 ? echoCount : ''}</span>
+          </button>
+          <button class="chat-action" data-action="reply">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+            <span>${replyCount > 0 ? `${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}` : 'reply'}</span>
+          </button>
+          <span class="chat-msg-coords">${(+m.lat).toFixed(3)}, ${(+m.lng).toFixed(3)} · ${time.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        ${expanded ? `
+          <div class="reply-thread">
+            ${replies.map(r => `
+              <div class="reply">
+                <div class="reply-avatar" style="--user-hue:${r.hue};">${initialsOf(r.userName)}</div>
+                <div class="reply-body">
+                  <span class="reply-name">${r.userName}${isOnline(r.userName) ? '<span class="user-online-dot"></span>' : ''}</span>
+                  <span class="reply-time">${formatRelTime(r.timestamp)}</span>
+                  <div class="reply-text">${escapeHtml(r.text)}</div>
+                </div>
+              </div>
+            `).join('')}
+            <form class="reply-form" data-action="reply-submit">
+              <input class="reply-input" placeholder="Reply as ${me.name}…" maxlength="280">
+              <button class="reply-send" type="submit">Send</button>
+            </form>
+          </div>
+        ` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // wire actions
+  list.querySelectorAll('.chat-msg').forEach(el => {
+    const id = el.dataset.id;
+    el.querySelectorAll('[data-action]').forEach(actionEl => {
+      actionEl.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = actionEl.dataset.action;
+        if (action === 'echo')  toggleEcho(id);
+        if (action === 'reply') toggleReplies(id);
+        if (action === 'fly') {
+          const m = _serverEntries.find(x => x.id === id);
+          if (m && map) {
+            switchView('map');
+            setTimeout(() => map.flyTo({ center: [+m.lng, +m.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 }), 200);
+          }
+        }
+      });
+    });
+    const form = el.querySelector('form[data-action="reply-submit"]');
+    if (form) {
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const input = form.querySelector('.reply-input');
+        if (input) submitReply(id, input);
+      });
+    }
+  });
+}
 
 document.getElementById('modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
