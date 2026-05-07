@@ -1887,10 +1887,12 @@ function switchView(name) {
   if (name === 'map') { setTimeout(() => map.resize(), 100); updateMapInfo(); }
   if (name === 'dashboard') renderDashboard();
   if (name === 'journal') {
-    renderChat();                           // paint cached/local immediately
-    fetchServerEntries().then(renderChat);  // refresh from server, repaint
+    renderLobby({ scroll: false });   // paint cached + presence immediately
+    fetchLobbyMessages();             // grab latest, scroll to bottom
     fetchPresence();
-    startJournalPolling();                  // 7s polling while on this view
+    startJournalPolling();            // 4s polling while on this view
+    // focus the input so user can start typing immediately
+    setTimeout(() => document.getElementById('lobby-input')?.focus(), 200);
   } else {
     stopJournalPolling();
   }
@@ -2455,12 +2457,146 @@ function startJournalPolling() {
   stopJournalPolling();
   _journalPollId = setInterval(() => {
     if (document.hidden) return;
-    fetchServerEntries();
-  }, 7000);
+    fetchLobbyMessages();
+    fetchPresence();
+  }, 4000);
 }
 function stopJournalPolling() {
   if (_journalPollId) { clearInterval(_journalPollId); _journalPollId = null; }
 }
+
+// ---- LOBBY (shared real-time chat room) ----
+let _lobbyMessages = [];
+let _lobbySeenIds = new Set();
+async function fetchLobbyMessages() {
+  try {
+    const res = await fetch('/api/lobby');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.messages)) {
+      _lobbyMessages = data.messages;
+      data.messages.forEach(m => _lobbySeenIds.add(m.id));
+      renderLobby({ scroll: true });
+    }
+  } catch (_) {}
+}
+async function sendLobbyMessage() {
+  const input = document.getElementById('lobby-input');
+  if (!input) return;
+  const text = (input.value || '').trim();
+  if (!text) return;
+  const me = getOrCreateUserIdentity();
+  input.value = '';
+  // optimistic local render
+  const optimistic = {
+    id: 'opt-' + Date.now(),
+    userName: me.name,
+    hue: me.hue,
+    text,
+    timestamp: new Date().toISOString(),
+    _optimistic: true
+  };
+  _lobbyMessages = [..._lobbyMessages, optimistic];
+  renderLobby({ scroll: true });
+  try {
+    const res = await fetch('/api/lobby', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userName: me.name, hue: me.hue, text })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // remove the optimistic, real one will arrive on next poll
+      _lobbyMessages = _lobbyMessages.filter(m => m.id !== optimistic.id);
+      if (data.message) {
+        _lobbyMessages.push(data.message);
+        _lobbySeenIds.add(data.message.id);
+      }
+      renderLobby({ scroll: true });
+    } else {
+      // mark optimistic as failed
+      const idx = _lobbyMessages.findIndex(m => m.id === optimistic.id);
+      if (idx >= 0) _lobbyMessages[idx]._failed = true;
+      renderLobby({ scroll: false });
+    }
+  } catch (_) {
+    const idx = _lobbyMessages.findIndex(m => m.id === optimistic.id);
+    if (idx >= 0) _lobbyMessages[idx]._failed = true;
+    renderLobby({ scroll: false });
+  }
+}
+function renderLobby({ scroll = false } = {}) {
+  const list = document.getElementById('lobby-list');
+  if (!list) return;
+  // presence bar update
+  const presenceEl = document.getElementById('chat-presence');
+  if (presenceEl) {
+    const me = getOrCreateUserIdentity();
+    const total = _onlineUsers.length;
+    if (total === 0) {
+      presenceEl.innerHTML = `<span class="presence-empty">just you here · ${me.name}</span>`;
+    } else {
+      const dots = _onlineUsers.slice(0, 8).map(u =>
+        `<span class="presence-chip" style="--user-hue:${u.hue};" title="${u.name}">
+          <span class="presence-dot"></span>${u.name}${u.name === me.name ? ' (you)' : ''}
+        </span>`
+      ).join('');
+      const more = total > 8 ? `<span class="presence-more">+${total - 8}</span>` : '';
+      presenceEl.innerHTML = `<span class="presence-count">${total} here now</span> ${dots} ${more}`;
+    }
+  }
+
+  if (!_lobbyMessages.length) {
+    list.innerHTML = `<div class="lobby-empty">
+      <h3>Quiet so far</h3>
+      <p>Say hi — anyone here right now will see it.</p>
+    </div>`;
+    return;
+  }
+
+  const me = getOrCreateUserIdentity();
+  // group consecutive messages from same user (within 5 min) into one bubble cluster
+  const groups = [];
+  _lobbyMessages.forEach(m => {
+    const last = groups[groups.length - 1];
+    const isSame = last && last.userName === m.userName &&
+      (new Date(m.timestamp) - new Date(last.messages[last.messages.length - 1].timestamp)) < 5 * 60 * 1000;
+    if (isSame) last.messages.push(m);
+    else groups.push({ userName: m.userName, hue: m.hue, messages: [m] });
+  });
+
+  list.innerHTML = groups.map(g => {
+    const isMe = g.userName === me.name;
+    const isOnlineNow = isOnline(g.userName);
+    const lastMsg = g.messages[g.messages.length - 1];
+    const time = formatRelTime(lastMsg.timestamp);
+    return `<div class="lobby-group ${isMe ? 'me' : ''}">
+      <div class="lobby-avatar" style="--user-hue:${g.hue};">${initialsOf(g.userName)}</div>
+      <div class="lobby-bubble-stack">
+        <div class="lobby-meta">
+          <span class="lobby-name">${g.userName}${isOnlineNow ? '<span class="user-online-dot"></span>' : ''}</span>
+          <span class="lobby-time">${time}</span>
+        </div>
+        ${g.messages.map(m => `
+          <div class="lobby-bubble ${m._optimistic ? 'sending' : ''} ${m._failed ? 'failed' : ''}">
+            ${escapeHtml(m.text)}
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  if (scroll) {
+    requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+  }
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+// keep the old name working — anywhere that called renderChat() now renders lobby
+function renderChat() { renderLobby({ scroll: false }); }
 
 async function postServerEntry(payload) {
   try {
@@ -2479,205 +2615,8 @@ async function postServerEntry(payload) {
   return null;
 }
 
-function buildChatFeed() {
-  const me = getOrCreateUserIdentity();
-  // server entries are now the source of truth for community
-  const community = _serverEntries.map(e => ({
-    id: e.id,
-    kind: e.userName === me.name ? 'self' : 'other',
-    userId: e.userName,
-    userName: e.userName || 'Anon',
-    hue: e.hue || '#7ee5d4',
-    emotion: e.emotion,
-    place: e.placeName || `${(+e.lat).toFixed(3)}, ${(+e.lng).toFixed(3)}`,
-    lat: +e.lat, lng: +e.lng,
-    note: e.note || '',
-    timestamp: e.timestamp
-  }));
-  return [...community, ..._chatSessionExtras]
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-}
-
-function setChatFilter(f) {
-  chatFilter = f;
-  document.querySelectorAll('.chat-filter').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.filter === f);
-  });
-  renderChat();
-}
-
-function renderChat() {
-  const list = document.getElementById('chat-list');
-  if (!list) return;
-
-  // ---- presence bar at the top ----
-  const presenceEl = document.getElementById('chat-presence');
-  if (presenceEl) {
-    const me = getOrCreateUserIdentity();
-    const others = _onlineUsers.filter(u => u.name !== me.name);
-    const total = _onlineUsers.length;
-    if (total === 0) {
-      presenceEl.innerHTML = `<span class="presence-empty">just you here · ${me.name}</span>`;
-    } else {
-      const dots = _onlineUsers.slice(0, 6).map(u =>
-        `<span class="presence-chip" style="--user-hue:${u.hue};" title="${u.name}">
-          <span class="presence-dot"></span>${u.name}${u.name === me.name ? ' (you)' : ''}
-        </span>`
-      ).join('');
-      const more = total > 6 ? `<span class="presence-more">+${total - 6}</span>` : '';
-      presenceEl.innerHTML = `<span class="presence-count">${total} here now</span> ${dots} ${more}`;
-    }
-  }
-
-  const feed = buildChatFeed();
-  const shown = chatFilter === 'mine'   ? feed.filter(m => m.kind === 'self')
-              : chatFilter === 'others' ? feed.filter(m => m.kind === 'other')
-              : feed;
-
-  if (shown.length === 0) {
-    list.innerHTML = `<div class="chat-empty">
-      <h3>Nothing here yet</h3>
-      <p>Log a feeling on the map and it will land in this feed.</p>
-    </div>`;
-    return;
-  }
-
-  const myEchoes = getMyEchoes();
-  const me = getOrCreateUserIdentity();
-
-  list.innerHTML = shown.map(m => {
-    const em = EMOTION_MAP[m.emotion] || EMOTIONS[0];
-    const time = new Date(m.timestamp);
-    const rel = formatRelTime(m.timestamp);
-    const serverEntry = _serverEntries.find(e => e.id === m.id);
-    const echoCount = serverEntry?.echoCount || 0;
-    const replyCount = serverEntry?.replyCount || 0;
-    const iEchoed = myEchoes.has(m.id);
-    const expanded = _expandedReplies.has(m.id);
-    const replies = _repliesCache[m.id] || [];
-
-    const onlineDot = isOnline(m.userName) ? `<span class="user-online-dot" title="online"></span>` : '';
-
-    return `<div class="chat-msg ${m.kind === 'self' ? 'self' : ''}" data-id="${m.id}" style="--em-color:${em.color};">
-      <div class="chat-avatar" style="--user-hue:${m.hue};">${initialsOf(m.userName)}</div>
-      <div class="chat-msg-body">
-        <div class="chat-msg-head">
-          <span class="chat-username">${m.userName}${onlineDot}</span>
-          <span class="chat-emotion-chip" style="color:${em.color};">${em.label}</span>
-          <span class="chat-time">${rel}</span>
-        </div>
-        <div class="chat-msg-place" data-action="fly">at <em>${m.place}</em></div>
-        ${m.note ? `<div class="chat-msg-note">${m.note}</div>` : ''}
-        <div class="chat-msg-actions">
-          <button class="chat-action ${iEchoed ? 'on' : ''}" data-action="echo">
-            <svg viewBox="0 0 24 24" fill="${iEchoed ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-            <span>${echoCount > 0 ? echoCount : ''}</span>
-          </button>
-          <button class="chat-action" data-action="reply">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-            </svg>
-            <span>${replyCount > 0 ? `${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}` : 'reply'}</span>
-          </button>
-          <span class="chat-msg-coords">${m.lat.toFixed(3)}, ${m.lng.toFixed(3)} · ${time.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-        ${expanded ? `
-          <div class="reply-thread">
-            ${replies.map(r => `
-              <div class="reply">
-                <div class="reply-avatar" style="--user-hue:${r.hue};">${initialsOf(r.userName)}</div>
-                <div class="reply-body">
-                  <span class="reply-name">${r.userName}${isOnline(r.userName) ? '<span class="user-online-dot"></span>' : ''}</span>
-                  <span class="reply-time">${formatRelTime(r.timestamp)}</span>
-                  <div class="reply-text">${r.text}</div>
-                </div>
-              </div>
-            `).join('')}
-            <form class="reply-form" data-action="reply-submit">
-              <input class="reply-input" placeholder="Reply as ${me.name}…" maxlength="280">
-              <button class="reply-send" type="submit">Send</button>
-            </form>
-          </div>
-        ` : ''}
-      </div>
-    </div>`;
-  }).join('');
-
-  // wire up message actions
-  list.querySelectorAll('.chat-msg').forEach(el => {
-    const id = el.dataset.id;
-    el.querySelectorAll('[data-action]').forEach(actionEl => {
-      actionEl.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const action = actionEl.dataset.action;
-        if (action === 'echo')  toggleEcho(id);
-        if (action === 'reply') toggleReplies(id);
-        if (action === 'fly') {
-          const msg = buildChatFeed().find(m => m.id === id);
-          if (msg && map) {
-            switchView('map');
-            setTimeout(() => map.flyTo({ center: [msg.lng, msg.lat], zoom: 17, pitch: 60, bearing: -18, duration: 1200 }), 200);
-          }
-        }
-      });
-    });
-    const form = el.querySelector('form[data-action="reply-submit"]');
-    if (form) {
-      form.addEventListener('submit', (ev) => {
-        ev.preventDefault();
-        const input = form.querySelector('.reply-input');
-        if (input) submitReply(id, input);
-      });
-    }
-  });
-}
-
-function sendChatMessage() {
-  const input = document.getElementById('chat-input');
-  if (!input) return;
-  const text = input.value.trim();
-  if (!text) return;
-  const emotion = affectState
-    ? nearestEmotion(affectState.valence, affectState.arousal).id
-    : 'joy';
-  const center = map && map.getCenter ? map.getCenter() : { lat: 37.8716, lng: -122.2727 };
-  const place = (map && findPlaceName(center.lng, center.lat)) || 'somewhere on campus';
-  const me = getOrCreateUserIdentity();
-  // optimistic local render so the message appears instantly
-  _chatSessionExtras.push({
-    id: 'you-' + Date.now(),
-    kind: 'self',
-    userId: me.name,
-    userName: me.name,
-    hue: me.hue,
-    emotion,
-    place,
-    lat: center.lat, lng: center.lng,
-    note: text,
-    timestamp: new Date().toISOString()
-  });
-  input.value = '';
-  renderChat();
-  // share to community
-  postServerEntry({
-    lat: center.lat,
-    lng: center.lng,
-    emotion,
-    intensity: 5,
-    valence: affectState ? affectState.valence : 0,
-    arousal: affectState ? affectState.arousal : 0,
-    note: text,
-    placeName: place,
-    userName: me.name,
-    hue: me.hue
-  }).then(() => {
-    // server-confirmed entry replaces the optimistic one
-    _chatSessionExtras = _chatSessionExtras.filter(m => m.note !== text || m.userName !== me.name);
-    renderChat();
-  });
-}
+// (the old community-feed renderChat / sendChatMessage / buildChatFeed
+// were here; removed in favor of the shared lobby chat above.)
 
 document.getElementById('modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();

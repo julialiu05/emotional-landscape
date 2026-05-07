@@ -308,27 +308,22 @@
   </div>
 </div>
 
-<!-- ===================== MESSAGES VIEW ===================== -->
+<!-- ===================== MESSAGES VIEW (live lobby chat) ===================== -->
 <div id="journal-view" class="view">
   <div class="chat-hero">
     <div class="chat-hero-text">
-      <div class="chat-hero-eyebrow">Live across the landscape</div>
-      <h1>Messages</h1>
-      <p>Feelings logged, in this moment, by everyone.</p>
+      <div class="chat-hero-eyebrow">Lobby</div>
+      <h1>Who's around</h1>
+      <p>Talk to whoever else is here right now.</p>
     </div>
   </div>
 
   <div class="chat-body">
     <div class="chat-presence" id="chat-presence"></div>
-    <div class="chat-filter-row">
-      <button class="chat-filter active" data-filter="all" onclick="setChatFilter('all')">All</button>
-      <button class="chat-filter" data-filter="mine" onclick="setChatFilter('mine')">You</button>
-      <button class="chat-filter" data-filter="others" onclick="setChatFilter('others')">Everyone</button>
-    </div>
-    <div class="chat-list" id="chat-list"></div>
+    <div class="lobby-list" id="lobby-list"></div>
     <div class="chat-composer">
-      <input type="text" id="chat-input" placeholder="Share how you're feeling…" onkeydown="if(event.key==='Enter') sendChatMessage()">
-      <button class="chat-send" onclick="sendChatMessage()">Send</button>
+      <input type="text" id="lobby-input" placeholder="Say something to the room…" maxlength="500" onkeydown="if(event.key==='Enter') sendLobbyMessage()">
+      <button class="chat-send" onclick="sendLobbyMessage()">Send</button>
     </div>
   </div>
 </div>

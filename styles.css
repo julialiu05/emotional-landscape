@@ -1476,6 +1476,114 @@ body.is-dragging-dropper * { cursor: grabbing !important; }
   min-height: 0;
 }
 
+/* lobby chat — shared real-time room */
+.lobby-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-2);
+  margin-bottom: var(--s-3);
+}
+.lobby-list::-webkit-scrollbar { width: 4px; }
+.lobby-list::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 2px; }
+
+.lobby-empty {
+  text-align: center;
+  padding: var(--s-12) var(--s-4);
+  color: var(--muted);
+  margin: auto;
+}
+.lobby-empty h3 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-bottom: var(--s-2);
+}
+
+.lobby-group {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-3);
+  max-width: 80%;
+}
+.lobby-group.me {
+  flex-direction: row-reverse;
+  margin-left: auto;
+}
+.lobby-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--user-hue, var(--accent));
+  color: var(--accent-on);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.lobby-bubble-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.lobby-group.me .lobby-bubble-stack { align-items: flex-end; }
+
+.lobby-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin-bottom: 2px;
+  padding: 0 4px;
+}
+.lobby-group.me .lobby-meta { flex-direction: row-reverse; }
+.lobby-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.lobby-time {
+  font-size: 11px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.lobby-bubble {
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 9px 14px;
+  border-radius: 16px;
+  background: var(--paper-2);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  animation: lobbyIn 0.3s var(--ease-out);
+  max-width: 100%;
+}
+.lobby-group.me .lobby-bubble {
+  background: var(--accent);
+  color: var(--accent-on);
+  border-color: transparent;
+}
+.lobby-bubble.sending { opacity: 0.6; }
+.lobby-bubble.failed {
+  border-color: var(--error);
+  color: var(--error);
+}
+.lobby-bubble.failed::after {
+  content: ' · failed';
+  font-size: 11px;
+  opacity: 0.7;
+}
+@keyframes lobbyIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* presence bar — who is online right now */
 .chat-presence {
   display: flex;
