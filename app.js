@@ -10,7 +10,7 @@ function checkAuth() {
 
 function setLever(checked) {
   const lever = document.getElementById('mode-lever');
-  lever.checked = checked;
+  if (lever) lever.checked = checked;
   handleLever(checked);
 }
 
